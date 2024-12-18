@@ -18,6 +18,19 @@ $ ldcup list
 $ ldcup uninstall ldc2-${version}
 ```
 
+## Helper
+```bash
+$ ldcup                                         
+Usage: ldcup [command] [options]
+Commands:
+  install [compiler]   Install a D compiler (default: ldc2-latest)
+  uninstall [compiler] Uninstall a specific compiler
+  list                 List installed compilers
+  --verbose, -v        Enable verbose output
+  --install-dir=DIR    Specify the installation directory
+  --help, -h           Show this help message
+```
+
 ## License
 
 [Apache-2.0](LICENSE)
