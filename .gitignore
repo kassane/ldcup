@@ -6,6 +6,7 @@
 *.so
 *.dylib
 *.dll
+bin/
 
 # Compiled Static libraries
 *.a

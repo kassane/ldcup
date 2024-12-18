@@ -1,0 +1,40 @@
+{
+	"name": "ldcup",
+	"description": "Download and manage D compiler [ldc2].",
+	"license": "Apache-2.0",
+	"targetPath": "bin",
+	"authors": [
+		"Matheus Catarino França"
+	],
+	"buildTypes": {
+		"debug": {
+			"buildOptions": [
+				"debugMode",
+				"debugInfo"
+			]
+		},
+		"release": {
+			"buildOptions": [
+				"releaseMode",
+				"optimize",
+				"inline"
+			]
+		},
+		"release-debug": {
+			"buildOptions": [
+				"releaseMode",
+				"optimize",
+				"inline",
+				"debugInfo"
+			]
+		},
+		"release-nobounds": {
+			"buildOptions": [
+				"releaseMode",
+				"optimize",
+				"inline",
+				"noBoundsCheck"
+			]
+		}
+	}
+}
