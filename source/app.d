@@ -3,18 +3,18 @@ import std;
 enum OS
 {
 	android,
-	osx,
 	linux,
+	osx,
 	windows
 }
 
 enum Arch
 {
-	x86_64,
-	x86,
 	aarch64,
+	armv7a,
 	multilib,
-	universal
+	universal,
+	x86_64
 }
 
 class CompilerManager
@@ -69,8 +69,8 @@ class CompilerManager
 
 		version (X86_64)
 			currentArch = Arch.x86_64;
-		else version (x86)
-			currentArch = Arch.x86;
+		else version (ARM)
+			currentArch = Arch.armv7a;
 		else version (AArch64)
 			currentArch = Arch.aarch64;
 		else
