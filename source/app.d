@@ -27,6 +27,10 @@ class CompilerManager
 		string compilerPath;
 		string toolchainExtractPath;
 		string compilerVersion;
+		version (Windows)
+			immutable string ext = ".7z";
+		else
+			immutable string ext = ".tar.xz";
 		bool verbose;
 		OS currentOS;
 		Arch currentArch;
@@ -87,8 +91,6 @@ class CompilerManager
 
 	private string randomString(size_t length)
 	{
-		import std.random;
-
 		static immutable chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 		return chars.map!(a => a).array.randomSample(length).text;
 	}
@@ -157,10 +159,10 @@ class CompilerManager
 			log("Downloading LDC2 for version: " ~ compilerVersion);
 
 			return compilerVersion.match(r"^\d+(\.\d+)*$")
-				? fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s.tar.xz",
-					compilerVersion, compilerVersion, this.currentOS, this.currentArch) : fmt(
-					"https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s.tar.xz",
-					compilerVersion, this.currentOS, this.currentArch);
+				? fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
+					compilerVersion, compilerVersion, this.currentOS, this.currentArch, ext) : fmt(
+					"https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
+					compilerVersion, this.currentOS, this.currentArch, ext);
 		}
 
 		throw new Exception("Unknown compiler: " ~ compilerSpec);
@@ -219,11 +221,6 @@ class CompilerManager
 
 	private void downloadAndExtract(string url, string targetPath)
 	{
-		version (Windows)
-			immutable string ext = ".7z";
-		else
-			immutable string ext = ".tar.xz";
-
 		if (!exists(targetPath ~ ext))
 		{
 			download(url, targetPath ~ ext);
