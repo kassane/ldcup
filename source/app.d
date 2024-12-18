@@ -376,7 +376,7 @@ void main(string[] args)
 	}
 	else
 	{
-		if (!args[2].startsWith("ldc"))
+		if (canFind(args, "dmd") || canFind(args, "gdc"))
 		{
 			throw new Exception("Only ldc compilers are allowed.");
 		}
@@ -387,7 +387,9 @@ void main(string[] args)
 	switch (args[1])
 	{
 	case "install":
-		installer.installCompiler(args.length > 2 ? args[2] : "ldc2-latest");
+		const compiler = args.filter!(arg => arg.startsWith("ldc2-")).empty ? "ldc2-latest" : args.filter!(
+			arg => arg.startsWith("ldc2-")).front;
+		installer.installCompiler(compiler);
 		break;
 	case "uninstall":
 		installer.uninstallCompiler(args[2]);
