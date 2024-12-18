@@ -5,7 +5,6 @@ enum OS
 	android,
 	osx,
 	linux,
-	freebsd,
 	windows
 }
 
@@ -36,12 +35,13 @@ class CompilerManager
 		Arch currentArch;
 	}
 
-	this(string installRoot = "", bool verboseMode = false)
+	this(string installRoot)
 	{
 		root = installRoot.empty ? defaultInstallRoot() : expandTilde(installRoot);
-		verbose = verboseMode;
+		if (!exists(root))
+			mkdir(root);
+		verbose = false;
 		detectPlatform();
-		ensureInstallDirectory();
 	}
 
 	private string defaultInstallRoot()
@@ -62,8 +62,6 @@ class CompilerManager
 			currentOS = OS.android;
 		else version (linux)
 			currentOS = OS.linux;
-		else version (FreeBSD)
-			currentOS = OS.freebsd;
 		else version (Windows)
 			currentOS = OS.windows;
 		else
@@ -77,22 +75,6 @@ class CompilerManager
 			currentArch = Arch.aarch64;
 		else
 			static assert(0, "Unsupported architecture");
-	}
-
-	private void ensureInstallDirectory()
-	{
-		if (!exists(root))
-		{
-			mkdirRecurse(root);
-		}
-		tmpRoot = buildPath(root, ".installer_tmp_" ~ randomString(6));
-		mkdirRecurse(tmpRoot);
-	}
-
-	private string randomString(size_t length)
-	{
-		static immutable chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-		return chars.map!(a => a).array.randomSample(length).text;
 	}
 
 	void installCompiler(string compilerSpec)
@@ -324,10 +306,7 @@ class CompilerManager
 	{
 		log("Listing installed compilers");
 		return dirEntries(root, SpanMode.shallow)
-			.filter!(entry =>
-					entry.isDir &&
-					!entry.name.baseName.startsWith(".installer_tmp_")
-		)
+			.filter!(entry => entry.isDir)
 			.map!(entry => entry.name.baseName)
 			.array;
 	}
@@ -343,37 +322,61 @@ class CompilerManager
 
 void main(string[] args)
 {
-	auto installer = new CompilerManager();
+	bool hasHelp = false;
+	bool hasVerbose = false;
+	string installdir;
+	string command;
+	string compiler = "ldc2-latest";
 
-	if (args.length < 2 || args[1] == "--help" || args[1] == "-h")
+	foreach (arg; args[1 .. $])
+	{
+		if (arg == "--help" || arg == "-h")
+			hasHelp = true;
+		else if (arg == "--verbose" || arg == "-v")
+			hasVerbose = true;
+		else if (arg.startsWith("--install-dir="))
+			installdir = arg.split("=")[1];
+		else if (arg.startsWith("ldc2-"))
+			compiler = arg;
+		else if (command == "")
+			command = arg;
+		else
+			throw new Exception("Unknown flag: " ~ arg);
+	}
+
+	if (hasHelp || args.length < 2)
 	{
 		writefln("Usage: %s [command] [options]", args[0]);
 		writeln("Commands:");
 		writeln("  install [compiler]   Install a D compiler (default: ldc2-latest)");
 		writeln("  uninstall [compiler] Uninstall a specific compiler");
 		writeln("  list                 List installed compilers");
-		writeln("  --verbose            Enable verbose output");
+		writeln("  --verbose, -v        Enable verbose output");
+		writeln("  --install-dir=DIR    Specify the installation directory");
+		writeln("  --help, -h           Show this help message");
 		return;
 	}
-	else
+	foreach (arg; args[1 .. $])
 	{
-		if (canFind(args, "dmd") || canFind(args, "gdc"))
+		if (arg == "dmd" || arg == "gdc")
 		{
-			throw new Exception("Only ldc compilers are allowed.");
+			throw new Exception("Only ldc compiler is allowed.");
 		}
 	}
-	if (canFind(args, "--verbose") || canFind(args, "-v"))
+
+	auto installer = new CompilerManager(installdir);
+
+	if (hasVerbose)
 		installer.verbose = true;
 
-	switch (args[1])
+	switch (command)
 	{
 	case "install":
-		const compiler = args.filter!(arg => arg.startsWith("ldc2-")).empty ? "ldc2-latest" : args.filter!(
-			arg => arg.startsWith("ldc2-")).front;
+
 		installer.installCompiler(compiler);
 		break;
 	case "uninstall":
-		installer.uninstallCompiler(args[2]);
+		installer.uninstallCompiler(compiler);
 		break;
 	case "list":
 		writeln(installer.listInstalledCompilers());
