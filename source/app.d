@@ -2,7 +2,8 @@ import std;
 
 enum OS
 {
-	darwin,
+	android,
+	osx,
 	linux,
 	freebsd,
 	windows
@@ -12,7 +13,8 @@ enum Arch
 {
 	x86_64,
 	x86,
-	aarch64
+	aarch64,
+	universal
 }
 
 class CompilerManager
@@ -50,7 +52,9 @@ class CompilerManager
 	private void detectPlatform()
 	{
 		version (OSX)
-			currentOS = OS.darwin;
+			currentOS = OS.osx;
+		else version (Android)
+			currentOS = OS.android;
 		else version (linux)
 			currentOS = OS.linux;
 		else version (FreeBSD)
@@ -64,7 +68,7 @@ class CompilerManager
 			currentArch = Arch.x86_64;
 		else version (x86)
 			currentArch = Arch.x86;
-		else version (aarch64)
+		else version (AArch64)
 			currentArch = Arch.aarch64;
 		else
 			static assert(0, "Unsupported architecture");
@@ -140,6 +144,9 @@ class CompilerManager
 	private string getCompilerDownloadUrl(string compilerSpec)
 	{
 		string compilerVer = resolveLatestVersion(compilerSpec);
+
+		version (OSX)
+			this.currentArch = Arch.universal;
 
 		if (compilerSpec.startsWith("ldc2-"))
 		{
