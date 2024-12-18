@@ -249,62 +249,29 @@ class CompilerManager
 
 	private void extractTarXZ(string tarFile, string destination) @safe
 	{
+		immutable tarExe = findProgram("tar");
 		log("Extracting TarXZ: " ~ tarFile);
 		if (exists(destination))
 			rmdirRecurse(destination);
 
 		mkdirRecurse(destination);
 		auto pid = spawnProcess([
-			"tar", "xf", tarFile, fmt("--directory=%s", destination)
+			tarExe, "xf", tarFile, fmt("--directory=%s", destination)
 		]);
 		enforce(pid.wait() == 0, "Extraction failed");
 	}
 
-	private void extractZip(string zipFile, string destination) @trusted
-	{
-		log("Extracting Zip: " ~ zipFile);
-		ZipArchive archive = new ZipArchive(read(zipFile)); // unsafe/@system
-		string prefix;
-
-		if (exists(zipFile))
-			std.file.remove(zipFile);
-
-		if (exists(destination))
-			rmdirRecurse(destination);
-
-		mkdirRecurse(destination);
-
-		foreach (name, _; archive.directory)
-		{
-			prefix = name[0 .. $ - name.find("/").length + 1];
-			break;
-		}
-		foreach (name, am; archive.directory)
-		{
-			if (!am.expandedSize)
-				continue;
-
-			string path = buildPath(destination, chompPrefix(name, prefix));
-			auto dir = dirName(path);
-			if (!dir.empty && !dir.exists)
-				mkdirRecurse(dir);
-			archive.expand(am);
-			std.file.write(path, am.expandedData);
-		}
-	}
-
 	private void extract7z(string sevenZipFile, string destination) @trusted
 	{
-
+		immutable sevenZipExe = findProgram("7z");
 		log("Extracting 7z: " ~ sevenZipFile);
-
 		if (exists(destination))
 			rmdirRecurse(destination);
 
 		mkdirRecurse(destination);
 
 		auto pid = spawnProcess([
-			"7z", "x", sevenZipFile, fmt("-o%s", destination)
+			sevenZipExe, "x", sevenZipFile, fmt("-o%s", destination)
 		]);
 		enforce(pid.wait() == 0, "7z extraction failed");
 	}
@@ -377,7 +344,6 @@ class CompilerManager
 void main(string[] args)
 {
 	auto installer = new CompilerManager();
-	bool verbose = false;
 
 	if (args.length < 2 || args[1] == "--help" || args[1] == "-h")
 	{
@@ -422,4 +388,22 @@ private string fmt(Args...)(string fmt, auto ref Args args) @safe
 	auto app = appender!string();
 	formattedWrite(app, fmt, args);
 	return app.data;
+}
+
+private string findProgram(string programName) @safe
+{
+	string[] paths = environment.get("PATH").split(pathSeparator);
+	foreach (path; paths)
+	{
+		string fullPath = buildPath(path, programName);
+		version (Windows)
+		{
+			fullPath ~= ".exe";
+		}
+		if (exists(fullPath) && isFile(fullPath))
+		{
+			return fullPath;
+		}
+	}
+	throw new Exception("Could not find program: " ~ programName);
 }

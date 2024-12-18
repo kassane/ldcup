@@ -1,7 +1,7 @@
 name: Artifacts
 on: [push, workflow_dispatch]
 jobs:
-  test:
+  build:
     strategy:
       matrix:
         include:
