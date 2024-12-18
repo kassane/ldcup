@@ -342,6 +342,11 @@ void main(string[] args)
 			command = arg;
 		else
 			throw new Exception("Unknown flag: " ~ arg);
+
+		if (arg == "dmd" || arg == "gdc")
+		{
+			throw new Exception("Only ldc2 compiler is allowed.");
+		}
 	}
 
 	if (hasHelp || args.length < 2)
@@ -355,13 +360,6 @@ void main(string[] args)
 		writeln("  --install-dir=DIR    Specify the installation directory");
 		writeln("  --help, -h           Show this help message");
 		return;
-	}
-	foreach (arg; args[1 .. $])
-	{
-		if (arg == "dmd" || arg == "gdc")
-		{
-			throw new Exception("Only ldc compiler is allowed.");
-		}
 	}
 
 	auto installer = new CompilerManager(installdir);
