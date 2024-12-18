@@ -14,6 +14,7 @@ enum Arch
 	x86_64,
 	x86,
 	aarch64,
+	multilib,
 	universal
 }
 
@@ -147,6 +148,8 @@ class CompilerManager
 
 		version (OSX)
 			this.currentArch = Arch.universal;
+		else version (Windows)
+			this.currentArch = Arch.multilib;
 
 		if (compilerSpec.startsWith("ldc2-"))
 		{
@@ -217,18 +220,17 @@ class CompilerManager
 	private void downloadAndExtract(string url, string targetPath)
 	{
 		version (Windows)
-			immutable string ext = ".zip";
+			immutable string ext = ".7z";
 		else
 			immutable string ext = ".tar.xz";
 
-		// Download the compiler archive
 		if (!exists(targetPath ~ ext))
 		{
 			download(url, targetPath ~ ext);
 
 			// Extract the downloaded archive
 			version (Windows)
-				extractZip(targetPath ~ ext, targetPath);
+				extract7z(targetPath ~ ext, targetPath);
 			else
 				extractTarXZ(targetPath ~ ext, targetPath);
 
@@ -292,6 +294,22 @@ class CompilerManager
 			archive.expand(am);
 			std.file.write(path, am.expandedData);
 		}
+	}
+
+	private void extract7z(string sevenZipFile, string destination) @trusted
+	{
+
+		log("Extracting 7z: " ~ sevenZipFile);
+
+		if (exists(destination))
+			rmdirRecurse(destination);
+
+		mkdirRecurse(destination);
+
+		auto pid = spawnProcess([
+			"7z", "x", sevenZipFile, fmt("-o%s", destination)
+		]);
+		enforce(pid.wait() == 0, "7z extraction failed");
 	}
 
 	private void generateActivationScripts(string compilerName)
