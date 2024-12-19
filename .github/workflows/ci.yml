@@ -23,9 +23,12 @@ jobs:
           dub -b release
       - name: Tests
         run: |
+          dub -b release -- list --remote -v
           dub -b release -- install -v
           dub -b release -- install ldc2-master -v
-          ldc2 --version
+          dub -b release -- list -v
+          dub -b release -- uninstall ldc2-1.40.0 -v
+          dub -b release -- list -v
       - uses: actions/upload-artifact@v4
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}
