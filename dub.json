@@ -7,6 +7,10 @@
 	"authors": [
 		"Matheus Catarino França"
 	],
+	"dflags": [
+		"-preview=dip1000",
+		"-preview=systemVariables"
+	],
 	"buildTypes": {
 		"debug": {
 			"buildOptions": [

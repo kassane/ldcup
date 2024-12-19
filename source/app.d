@@ -34,7 +34,7 @@ class CompilerManager
 		Arch currentArch;
 	}
 
-	this(string installRoot)
+	this(string installRoot) @safe
 	{
 		if (!installRoot.empty)
 			environment["DC_PATH"] = installRoot;
@@ -52,7 +52,7 @@ class CompilerManager
 		debug writeln("Installing to " ~ root);
 	}
 
-	private string defaultInstallRoot()
+	private string defaultInstallRoot() @safe
 	{
 		version (Windows)
 			return buildPath(environment.get("LOCALAPPDATA", expandTilde("~")), "dlang");
@@ -62,7 +62,7 @@ class CompilerManager
 			return expandTilde("~/dlang");
 	}
 
-	private void detectPlatform()
+	private void detectPlatform() @safe @nogc
 	{
 		version (OSX)
 			currentOS = OS.osx;
@@ -85,7 +85,7 @@ class CompilerManager
 			static assert(0, "Unsupported architecture");
 	}
 
-	void installCompiler(string compilerSpec)
+	void installCompiler(string compilerSpec) @safe
 	{
 		log("Installing compiler: " ~ compilerSpec);
 		auto resolvedCompiler = resolveLatestVersion(compilerSpec);
@@ -96,14 +96,14 @@ class CompilerManager
 		generateActivationScripts(resolvedCompiler);
 	}
 
-	private string resolveLatestVersion(string compilerSpec)
+	private string resolveLatestVersion(string compilerSpec) @trusted
 	{
 		// If no specific version is provided, fetch the latest version
 		if (compilerSpec.endsWith("latest") || compilerSpec.empty)
 		{
 			try
 			{
-				auto response = get("https://ldc-developers.github.io/LATEST");
+				auto response = get("https://ldc-developers.github.io/LATEST"); // @system
 				string latestVersion = strip(response.to!string);
 				log("Resolved latest version: ldc2-" ~ latestVersion);
 				return "ldc2-" ~ latestVersion;
@@ -118,7 +118,7 @@ class CompilerManager
 		{
 			try
 			{
-				auto response = get("https://github.com/ldc-developers/ldc/commits/master.atom");
+				auto response = get("https://github.com/ldc-developers/ldc/commits/master.atom"); // @system
 				auto commitHash = strip(response.split(
 						"<id>tag:github.com,2008:Grit::Commit/")[1].split("</id>")[0][0 .. 8]);
 				log("Resolved nightly version: ldc2-" ~ commitHash.to!string);
@@ -134,7 +134,7 @@ class CompilerManager
 		return compilerSpec;
 	}
 
-	private string getCompilerDownloadUrl(string compilerSpec)
+	private string getCompilerDownloadUrl(string compilerSpec) @safe
 	{
 		string compilerVer = resolveLatestVersion(compilerSpec);
 
@@ -209,9 +209,9 @@ class CompilerManager
 		file.rawWrite(buf.data);
 	}
 
-	private void downloadAndExtract(string url, string targetPath)
+	private void downloadAndExtract(string url, string targetPath) @safe
 	{
-		if (!exists(targetPath ~ ext))
+		if (!exists(targetPath))
 		{
 			download(url, targetPath ~ ext);
 
@@ -224,16 +224,16 @@ class CompilerManager
 			log("Extracted compiler to " ~ targetPath);
 
 			toolchainExtractPath = buildPath(targetPath, fmt("ldc2-%s-%s-%s", this.compilerVersion, this
-					.currentOS.to!string, this
-					.currentArch.to!string));
+					.currentOS, this
+					.currentArch));
 		}
 		else
 		{
 			toolchainExtractPath = buildPath(targetPath, fmt("ldc2-%s-%s-%s", this.compilerVersion, this
-					.currentOS.to!string, this
-					.currentArch.to!string));
+					.currentOS, this
+					.currentArch));
 
-			log("Compiler already exists at " ~ toolchainExtractPath);
+			writeln("Compiler already exists at " ~ toolchainExtractPath);
 		}
 	}
 
@@ -251,7 +251,7 @@ class CompilerManager
 		enforce(pid.wait() == 0, "Extraction failed");
 	}
 
-	private void extract7z(string sevenZipFile, string destination) @trusted
+	private void extract7z(string sevenZipFile, string destination) @safe
 	{
 		immutable sevenZipExe = findProgram("7z");
 		log("Extracting 7z: " ~ sevenZipFile);
@@ -266,7 +266,7 @@ class CompilerManager
 		enforce(pid.wait() == 0, "7z extraction failed");
 	}
 
-	private void generateActivationScripts(string compilerName)
+	private void generateActivationScripts(string compilerName) @safe
 	{
 		compilerPath = buildPath(root, compilerName);
 		string scriptsDir = buildPath(compilerPath, "activation");
@@ -304,7 +304,7 @@ class CompilerManager
 			writefln("\nrun\n %s", batchScript);
 	}
 
-	void uninstallCompiler(string compilerName)
+	void uninstallCompiler(string compilerName) @safe
 	{
 		log("Uninstalling compiler: " ~ compilerName);
 		auto compilerPath = buildPath(root, compilerName);
@@ -318,10 +318,10 @@ class CompilerManager
 		}
 	}
 
-	string[] listInstalledCompilers()
+	string[] listInstalledCompilers() @trusted
 	{
 		log("Listing installed compilers");
-		return dirEntries(root, SpanMode.shallow)
+		return dirEntries(root, SpanMode.shallow) // @system
 			.filter!(entry => entry.isDir)
 			.map!(entry => entry.name.baseName)
 			.array;
@@ -336,7 +336,7 @@ class CompilerManager
 	}
 }
 
-void main(string[] args)
+void main(string[] args) @safe
 {
 	bool hasHelp = false;
 	bool hasVerbose = false;
