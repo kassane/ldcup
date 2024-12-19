@@ -215,11 +215,13 @@ class CompilerManager
 		{
 			download(url, targetPath ~ ext);
 
-			// Extract the downloaded archive
+			// Extract the downloaded tarball
 			version (Windows)
 				extract7z(targetPath ~ ext, targetPath);
 			else
 				extractTarXZ(targetPath ~ ext, targetPath);
+			// Remove the downloaded tarball
+			remove(targetPath ~ ext);
 
 			log("Extracted compiler to " ~ targetPath);
 
