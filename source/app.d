@@ -161,13 +161,34 @@ class CompilerManager
 	{
 		try
 		{
-			auto result = execute(["getent", "passwd", environment["USER"]]);
-			if (result.status == 0)
+			version (linux)
 			{
-				string[] parts = result.output.split(":");
-				if (parts.length > 6)
+				auto result = execute(["getent", "passwd", environment["USER"]]);
+				if (result.status == 0)
 				{
-					return parts[6].strip();
+					string[] parts = result.output.split(":");
+					if (parts.length > 6)
+					{
+						return parts[6].strip();
+					}
+				}
+			}
+			else version (OSX)
+			{
+				auto result = execute([
+					"dscl", ".", "-read", "/Users/" ~ environment["USER"],
+					"UserShell"
+				]);
+				if (result.status == 0)
+				{
+					string[] lines = result.output.splitLines();
+					foreach (line; lines)
+					{
+						if (line.startsWith("UserShell:"))
+						{
+							return line["UserShell:".length .. $].strip();
+						}
+					}
 				}
 			}
 			log("Could not determine default shell. Using /bin/sh as fallback.");
