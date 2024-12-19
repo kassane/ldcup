@@ -50,7 +50,7 @@ class CompilerManager
 		verbose = false;
 		detectPlatform();
 
-		writeln("Installing to " ~ root);
+		debug writeln("Installing to " ~ root);
 	}
 
 	private string defaultInstallRoot()
@@ -300,9 +300,9 @@ class CompilerManager
 		log("Generated activation scripts for " ~ compilerName);
 
 		version (Posix)
-			writefln("run\nsource %s/activate.sh" ~ bashScript);
+			writefln("\nrun\nsource %s", bashScript);
 		else
-			writefln("run\n %s/activate.bat" ~ batchScript);
+			writefln("\nrun\n %s", batchScript);
 	}
 
 	void uninstallCompiler(string compilerName)
