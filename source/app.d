@@ -320,6 +320,41 @@ class CompilerManager
 		}
 	}
 
+	void listLDCVersions() @safe
+	{
+		log("Listing LDC versions");
+		string githubUrl = "https://api.github.com/repos/ldc-developers/ldc/releases";
+		auto results = getGitHubList(githubUrl);
+		auto versions = results.map!(release => release["tag_name"].str).array;
+		writeln(versions.sort().to!string);
+	}
+
+	JSONValue[] getGitHubList(string baseURL) @trusted
+	{
+		JSONValue[] results;
+		int perPage = 100;
+		int pageNumber = 1;
+
+		while (true)
+		{
+			string url = fmt("%s?per_page=%d&page=%d", baseURL, perPage, pageNumber);
+			auto response = get(url);
+			JSONValue json = parseJSON(response);
+			JSONValue[] responseResults = json.array;
+
+			if (responseResults.length == 0)
+				break;
+
+			results ~= responseResults;
+			pageNumber++;
+
+			if (responseResults.length < perPage)
+				break;
+		}
+
+		return results;
+	}
+
 	string[] listInstalledCompilers() @trusted
 	{
 		log("Listing installed compilers");
@@ -342,6 +377,7 @@ void main(string[] args) @safe
 {
 	bool hasHelp = false;
 	bool hasVerbose = false;
+	bool hasAllVersion = false;
 	string installdir;
 	string command;
 	string compiler = "ldc2-latest";
@@ -356,6 +392,8 @@ void main(string[] args) @safe
 			installdir = arg.split("=")[1];
 		else if (arg.startsWith("ldc2-"))
 			compiler = arg;
+		else if (arg == "--remote")
+			hasAllVersion = true;
 		else if (command == "")
 			command = arg;
 		else
@@ -374,8 +412,9 @@ void main(string[] args) @safe
 		writeln("  install [compiler]   Install a D compiler (default: ldc2-latest)");
 		writeln("  uninstall [compiler] Uninstall a specific compiler");
 		writeln("  list                 List installed compilers");
-		writeln("  --verbose, -v        Enable verbose output");
 		writeln("  --install-dir=DIR    Specify the installation directory");
+		writeln("  --verbose, -v        Enable verbose output");
+		writeln("  --remote             List all available compiler releases");
 		writeln("  --help, -h           Show this help message");
 		return;
 	}
@@ -395,7 +434,10 @@ void main(string[] args) @safe
 		installer.uninstallCompiler(compiler);
 		break;
 	case "list":
-		writeln(installer.listInstalledCompilers());
+		if (hasAllVersion)
+			installer.listLDCVersions;
+		else
+			writeln(installer.listInstalledCompilers());
 		break;
 	default:
 		writeln("Unknown command. Use install, uninstall, or list.");

@@ -24,15 +24,16 @@ $ DC_PATH=customPath ldcup list # list installed compilers in custom path direct
 ```
 
 ## Helper
-```bash
+```console
 $ ldcup                                         
 Usage: ldcup [command] [options]
 Commands:
   install [compiler]   Install a D compiler (default: ldc2-latest)
   uninstall [compiler] Uninstall a specific compiler
   list                 List installed compilers
-  --verbose, -v        Enable verbose output
   --install-dir=DIR    Specify the installation directory
+  --verbose, -v        Enable verbose output
+  --remote             List all available compiler releases
   --help, -h           Show this help message
 ```
 
