@@ -22,7 +22,6 @@ class CompilerManager
 	private
 	{
 		string root;
-		string tmpRoot;
 		string compilerPath;
 		string toolchainExtractPath;
 		string compilerVersion;
@@ -151,9 +150,9 @@ class CompilerManager
 
 			return compilerVersion.match(r"^\d+(\.\d+)*$")
 				? fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
-					compilerVersion, compilerVersion, this.currentOS, this.currentArch, ext) : fmt(
+					compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext) : fmt(
 					"https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
-					compilerVersion, this.currentOS, this.currentArch, ext);
+					compilerVersion, this.currentOS, this.currentArch, this.ext);
 		}
 
 		throw new Exception("Unknown compiler: " ~ compilerSpec);
