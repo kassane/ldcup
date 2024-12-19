@@ -37,11 +37,20 @@ class CompilerManager
 
 	this(string installRoot)
 	{
-		root = installRoot.empty ? defaultInstallRoot() : expandTilde(installRoot);
+		if (!installRoot.empty)
+			environment["DC_PATH"] = installRoot;
+		else if (environment.get("DC_PATH").empty)
+			environment["DC_PATH"] = defaultInstallRoot();
+
+		root = environment.get("DC_PATH");
+
 		if (!exists(root))
 			mkdir(root);
+
 		verbose = false;
 		detectPlatform();
+
+		writeln("Installing to " ~ root);
 	}
 
 	private string defaultInstallRoot()
@@ -269,6 +278,7 @@ class CompilerManager
 		std.file.write(bashScript, q"[#!/bin/bash
 		export PATH="$PATH:COMPILER_PATH/bin"
 		export DC_PATH=COMPILER_PATH
+		export DC=COMPILER_PATH/bin/ldmd2
 		]".replace("COMPILER_PATH", toolchainExtractPath));
 
 		// Fish activation script
@@ -276,6 +286,7 @@ class CompilerManager
 		std.file.write(fishScript, q"[#!/usr/bin/env fish
 		set -x PATH $PATH COMPILER_PATH/bin
 		set -x DC_PATH COMPILER_PATH
+		set -x DC COMPILER_PATH/bin/ldmd2
 		]".replace("COMPILER_PATH", toolchainExtractPath));
 
 		// Windows batch script
@@ -283,9 +294,15 @@ class CompilerManager
 		std.file.write(batchScript, q"[@echo off
 		set PATH=%PATH%;COMPILER_PATH\bin
 		set DC_PATH=COMPILER_PATH
+		set DC=COMPILER_PATH\bin\ldmd2
 		]".replace("COMPILER_PATH", toolchainExtractPath));
 
 		log("Generated activation scripts for " ~ compilerName);
+
+		version (Posix)
+			writefln("run\nsource %s/activate.sh" ~ bashScript);
+		else
+			writefln("run\n %s/activate.bat" ~ batchScript);
 	}
 
 	void uninstallCompiler(string compilerName)

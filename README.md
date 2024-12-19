@@ -14,8 +14,13 @@ $ ldcup install # default latest version
 $ ldcup install ldc2-master # latest-CI version
 # or
 $ ldcup install ldc2-${version} # optional: -v
-$ ldcup list
+$ ldcup list # list installed compilers in default path directory
 $ ldcup uninstall ldc2-${version}
+
+## Custom path directory
+$ ldcup list --install-dir=custom-path # list installed compilers in custom path directory
+# or set DC_PATH environment variable
+$ DC_PATH=customPath ldcup list # list installed compilers in custom path directory
 ```
 
 ## Helper
