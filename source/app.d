@@ -52,7 +52,7 @@ class CompilerManager
 		debug writeln("Installing to " ~ root);
 	}
 
-	private string defaultInstallRoot() @safe
+	private string defaultInstallRoot() const @safe
 	{
 		version (Windows)
 			return buildPath(environment.get("LOCALAPPDATA", expandTilde("~")), "dlang");
@@ -88,12 +88,96 @@ class CompilerManager
 	void installCompiler(string compilerSpec) @safe
 	{
 		log("Installing compiler: " ~ compilerSpec);
-		auto resolvedCompiler = resolveLatestVersion(compilerSpec);
+		immutable resolvedCompiler = resolveLatestVersion(compilerSpec);
 
-		auto downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
+		immutable downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
 		downloadAndExtract(downloadUrl, buildPath(root, resolvedCompiler));
 
-		generateActivationScripts(resolvedCompiler);
+		compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this.currentOS, this
+				.currentArch), "bin");
+
+		setEnvInstallPath();
+	}
+
+	private void setEnvInstallPath() @safe
+	{
+		// Set the environment variable for add compilerPath into PATH
+		version (Posix)
+		{
+			immutable string userShell = getDefaultUserShell();
+			debug writefln("\nDetected default user shell: %s", userShell);
+			immutable string homeDir = environment.get("HOME", "~");
+			bool pathSet = false;
+
+			// Check for shell configuration files
+			string[] configFiles;
+			if (userShell.endsWith("zsh"))
+				configFiles = [".zshrc"];
+			else if (userShell.endsWith("bash"))
+				configFiles = [".bashrc", ".bash_profile"];
+			else
+				configFiles = [".profile"]; // Fallback for other shells
+
+			foreach (file; configFiles)
+			{
+				immutable string configPath = buildPath(homeDir, file);
+				if (exists(configPath))
+				{
+					string currentPathContent = readText(configPath);
+					string newPathEntry = fmt("export PATH=$PATH:%s\n", compilerPath);
+
+					// Check if the path is already in the file to avoid duplication
+					if (!currentPathContent.canFind(compilerPath))
+					{
+						append(configPath, newPathEntry);
+						log("PATH updated in " ~ file ~ ". Changes will apply on next shell session start or after sourcing " ~ file ~ ".");
+					}
+					else
+					{
+						log("PATH entry already exists in " ~ file ~ ". No update necessary.");
+					}
+					pathSet = true;
+					break; // Stop once we've updated or checked one file
+				}
+			}
+
+			if (!pathSet)
+			{
+				log("No shell configuration file found. Please add the PATH manually or create one of the following files:
+				.bashrc, .zshrc, .profile, .bash_profile.");
+				writefln("Manual command:\nexport PATH=$PATH:%s", compilerPath);
+			}
+		}
+		else version (Windows)
+		{
+			immutable string command = fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + '%s', 'User')\"", compilerPath);
+			auto result = executeShell(command);
+			enforce(result.status == 0, "Failed to set PATH: " ~ result.output);
+			log("PATH updated in user environment.");
+		}
+	}
+
+	private string getDefaultUserShell() const @safe
+	{
+		try
+		{
+			auto result = execute(["getent", "passwd", environment["USER"]]);
+			if (result.status == 0)
+			{
+				string[] parts = result.output.split(":");
+				if (parts.length > 6)
+				{
+					return parts[6].strip();
+				}
+			}
+			log("Could not determine default shell. Using /bin/sh as fallback.");
+			return "/bin/sh";
+		}
+		catch (Exception e)
+		{
+			log("Error getting user shell: " ~ e.msg);
+			return "/bin/sh"; // Default fallback
+		}
 	}
 
 	private string resolveLatestVersion(string compilerSpec) @trusted
@@ -104,7 +188,7 @@ class CompilerManager
 			try
 			{
 				auto response = get("https://ldc-developers.github.io/LATEST"); // @system
-				string latestVersion = strip(response.to!string);
+				immutable string latestVersion = strip(response.to!string);
 				log("Resolved latest version: ldc2-" ~ latestVersion);
 				return "ldc2-" ~ latestVersion;
 			}
@@ -118,7 +202,8 @@ class CompilerManager
 		{
 			try
 			{
-				auto response = get("https://github.com/ldc-developers/ldc/commits/master.atom"); // @system
+				auto response = get(
+					"https://github.com/ldc-developers/ldc/commits/master.atom"); // @system
 				auto commitHash = strip(response.split(
 						"<id>tag:github.com,2008:Grit::Commit/")[1].split("</id>")[0][0 .. 8]);
 				log("Resolved nightly version: ldc2-" ~ commitHash.to!string);
@@ -268,44 +353,6 @@ class CompilerManager
 		enforce(pid.wait() == 0, "7z extraction failed");
 	}
 
-	private void generateActivationScripts(string compilerName) @safe
-	{
-		compilerPath = buildPath(root, compilerName);
-		string scriptsDir = buildPath(compilerPath, "activation");
-		mkdirRecurse(scriptsDir);
-
-		// Bash activation script
-		string bashScript = buildPath(scriptsDir, "activate.sh");
-		std.file.write(bashScript, q"[#!/bin/bash
-		export PATH="$PATH:COMPILER_PATH/bin"
-		export DC_PATH=COMPILER_PATH
-		export DC=COMPILER_PATH/bin/ldmd2
-		]".replace("COMPILER_PATH", toolchainExtractPath));
-
-		// Fish activation script
-		string fishScript = buildPath(scriptsDir, "activate.fish");
-		std.file.write(fishScript, q"[#!/usr/bin/env fish
-		set -x PATH $PATH COMPILER_PATH/bin
-		set -x DC_PATH COMPILER_PATH
-		set -x DC COMPILER_PATH/bin/ldmd2
-		]".replace("COMPILER_PATH", toolchainExtractPath));
-
-		// Windows batch script
-		string batchScript = buildPath(scriptsDir, "activate.bat");
-		std.file.write(batchScript, q"[@echo off
-		set PATH=%PATH%;COMPILER_PATH\bin
-		set DC_PATH=COMPILER_PATH
-		set DC=COMPILER_PATH\bin\ldmd2
-		]".replace("COMPILER_PATH", toolchainExtractPath));
-
-		log("Generated activation scripts for " ~ compilerName);
-
-		version (Posix)
-			writefln("\nrun\nsource %s", bashScript);
-		else
-			writefln("\nrun\n %s", batchScript);
-	}
-
 	void uninstallCompiler(string compilerName) @safe
 	{
 		log("Uninstalling compiler: " ~ compilerName);
@@ -329,7 +376,7 @@ class CompilerManager
 		writeln(versions.sort().to!string);
 	}
 
-	JSONValue[] getGitHubList(string baseURL) @trusted
+	JSONValue[] getGitHubList(string baseURL) const @trusted
 	{
 		JSONValue[] results;
 		int perPage = 100;
@@ -355,7 +402,7 @@ class CompilerManager
 		return results;
 	}
 
-	string[] listInstalledCompilers() @trusted
+	string[] listInstalledCompilers() const @trusted
 	{
 		log("Listing installed compilers");
 		return dirEntries(root, SpanMode.shallow) // @system
@@ -364,7 +411,7 @@ class CompilerManager
 			.array;
 	}
 
-	void log(string message) @safe
+	void log(string message) const @safe
 	{
 		if (verbose)
 		{

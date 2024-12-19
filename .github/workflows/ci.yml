@@ -25,6 +25,7 @@ jobs:
         run: |
           dub -b release -- install -v
           dub -b release -- install ldc2-master -v
+          ldc2 --version
       - uses: actions/upload-artifact@v4
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}
