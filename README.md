@@ -8,6 +8,10 @@ Download and manage ldc2 compiler.
 Inspired by [rustup](https://github.com/rust-lang/rustup.rs) and [zigup](https://github.com/marler8997/zigup).
 
 ## Usage
+
+- Download [precompiled binaries](https://github.com/kassane/ldcup/releases) and extract it.
+- Add `ldcup` to your `$PATH`.
+- Run `ldcup` commands.
 ```bash
 $ ldcup install # default latest version
 # or
@@ -15,6 +19,7 @@ $ ldcup install ldc2-master # latest-CI version
 # or
 $ ldcup install ldc2-${version} # optional: -v
 $ ldcup list # list installed compilers in default path directory
+$ ldcup list --remote # list all available compiler releases
 $ ldcup uninstall ldc2-${version}
 
 ## Custom path directory
