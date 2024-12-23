@@ -29,6 +29,7 @@ jobs:
           dub -b release -- list -v
           dub -b release -- uninstall ldc2-1.40.0 -v
           dub -b release -- list -v
+          dub -b release -- run -v -- --version
       - uses: actions/upload-artifact@v4
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}

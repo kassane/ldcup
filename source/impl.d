@@ -51,7 +51,7 @@ class CompilerManager
         verbose = false;
         detectPlatform();
 
-        debug writeln("Installing to " ~ root);
+        writeln("Installing to " ~ root);
     }
 
     private string defaultInstallRoot() const @safe
@@ -99,6 +99,69 @@ class CompilerManager
                 .currentArch), "bin");
 
         setEnvInstallPath();
+    }
+
+    void runCompiler(ref string compilerSpec, ref string[] args) @safe
+    {
+        log("Running compiler: " ~ compilerSpec);
+        compilerPath = findLDC2Path;
+        if (args.length == 0)
+        {
+            throw new Exception("No flags provided for ldc2. Use 'run -- <flags>'.");
+        }
+        if (this.compilerPath.empty)
+        {
+            throw new Exception("Error: No LDC2 installation found.");
+        }
+        string[] cmd = [compilerPath] ~ args;
+        auto result = execute(cmd);
+        if (result.status != 0)
+        {
+            writeln("LDC2 execution failed with status ", result.status);
+            writeln(result.output);
+        }
+        else
+        {
+            writeln(result.output);
+        }
+    }
+
+    private string findLDC2Path(const size_t index = 0) @safe
+    {
+        // Check for installed compilers and return the path to ldc2 if found
+        const string[] installed = listInstalledCompilers().filter!(
+            ver => ver.startsWith("ldc2-")).array;
+
+        if (installed.length == 0)
+        {
+            writeln("No LDC2 installation found.");
+            return ""; // No ldc2 versions installed
+        }
+
+        if (index < installed.length)
+        {
+            string ldc2Dir = buildPath(root, installed[index], fmt("ldc2-%s-%s-%s",
+                    installed[index]["ldc2-".length .. $], this.currentOS, this.currentArch), "bin");
+            log("Looking for LDC2 installation at: " ~ ldc2Dir);
+            string ldc2Executable = buildPath(ldc2Dir, "ldc2");
+            version (Windows)
+                ldc2Executable ~= ".exe";
+
+            if (exists(ldc2Executable))
+            {
+                log("Found LDC2 executable at: " ~ ldc2Executable);
+                return ldc2Executable;
+            }
+            else
+            {
+                writeln("Error: LDC2 executable not found at ", ldc2Executable);
+                return "";
+            }
+        }
+        else
+        {
+            throw new Exception("Invalid index provided for single LDC2 installation.");
+        }
     }
 
     private void setEnvInstallPath() @safe

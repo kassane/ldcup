@@ -8,6 +8,7 @@ void main(string[] args) @safe
 	string installdir;
 	string command;
 	string compiler = "ldc2-latest";
+	string[] compilerArgs;
 
 	foreach (arg; args[1 .. $])
 	{
@@ -21,6 +22,15 @@ void main(string[] args) @safe
 			compiler = arg;
 		else if (arg == "--remote")
 			hasAllVersion = true;
+		else if (arg.endsWith("--"))
+		{
+			auto flagIndex = countUntil(args[1 .. $], "--");
+			if (flagIndex != -1)
+			{
+				compilerArgs = args[(flagIndex + 1) + 1 .. $];
+				break;
+			}
+		}
 		else if (command == "")
 			command = arg;
 		else
@@ -36,9 +46,10 @@ void main(string[] args) @safe
 	{
 		writefln("Usage: %s [command] [options]", args[0]);
 		writeln("Commands:");
-		writeln("  install [compiler]   Install a D compiler (default: ldc2-latest)");
+		writeln("  install [compiler]   Install a ldc2 compiler (default: ldc2-latest)");
 		writeln("  uninstall [compiler] Uninstall a specific compiler");
 		writeln("  list                 List installed compilers");
+		writeln("  run -- [compiler flags] Run a ldc2 compiler with specified flags");
 		writeln("  --install-dir=DIR    Specify the installation directory");
 		writeln("  --verbose, -v        Enable verbose output");
 		writeln("  --remote             List all available compiler releases");
@@ -54,7 +65,6 @@ void main(string[] args) @safe
 	switch (command)
 	{
 	case "install":
-
 		installer.installCompiler(compiler);
 		break;
 	case "uninstall":
@@ -65,6 +75,9 @@ void main(string[] args) @safe
 			installer.listLDCVersions;
 		else
 			writeln(installer.listInstalledCompilers());
+		break;
+	case "run":
+		installer.runCompiler(compiler, compilerArgs);
 		break;
 	default:
 		writeln("Unknown command. Use install, uninstall, or list.");
