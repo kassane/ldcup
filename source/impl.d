@@ -132,35 +132,33 @@ class CompilerManager
         const string[] installed = listInstalledCompilers().filter!(
             ver => ver.startsWith("ldc2-")).array;
 
-        if (installed.length == 0)
-        {
-            writeln("No LDC2 installation found.");
-            return ""; // No ldc2 versions installed
-        }
+        enforce(!installed.empty, "No LDC2 installation found.");
 
-        if (index < installed.length)
-        {
-            string ldc2Dir = buildPath(root, installed[index], fmt("ldc2-%s-%s-%s",
-                    installed[index]["ldc2-".length .. $], this.currentOS, this.currentArch), "bin");
-            log("Looking for LDC2 installation at: " ~ ldc2Dir);
-            string ldc2Executable = buildPath(ldc2Dir, "ldc2");
-            version (Windows)
-                ldc2Executable ~= ".exe";
+        enforce(index < installed.length, fmt(
+                "Invalid index %s; exceeds available installations.", index));
 
-            if (exists(ldc2Executable))
-            {
-                log("Found LDC2 executable at: " ~ ldc2Executable);
-                return ldc2Executable;
-            }
-            else
-            {
-                writeln("Error: LDC2 executable not found at ", ldc2Executable);
-                return "";
-            }
+        version (OSX)
+            this.currentArch = Arch.universal;
+        else version (Windows)
+            this.currentArch = Arch.multilib;
+
+        immutable string ldc2Dir = buildPath(root, installed[index], format("ldc2-%s-%s-%s",
+                installed[index]["ldc2-".length .. $], this.currentOS, this.currentArch), "bin");
+        log("Looking for LDC2 installation at: " ~ ldc2Dir);
+
+        version (Posix)
+            immutable string ldc2Executable = buildPath(ldc2Dir, "ldc2");
+        else version (Windows)
+            immutable string ldc2Executable = buildPath(ldc2Dir, "ldc2.exe");
+
+        if (exists(ldc2Executable))
+        {
+            log("Found LDC2 executable at: " ~ ldc2Executable);
+            return ldc2Executable;
         }
         else
         {
-            throw new Exception("Invalid index provided for single LDC2 installation.");
+            throw new Exception(format("LDC2 executable not found at %s", ldc2Executable));
         }
     }
 
