@@ -18,7 +18,7 @@ void main(string[] args) @safe
 			hasVerbose = true;
 		else if (arg.startsWith("--install-dir="))
 			installdir = arg.split("=")[1];
-		else if (arg.startsWith("ldc2-"))
+		else if (arg.startsWith("ldc2-") || arg.startsWith("opend-"))
 			compiler = arg;
 		else if (arg == "--remote")
 			hasAllVersion = true;

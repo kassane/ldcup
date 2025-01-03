@@ -66,25 +66,31 @@ class CompilerManager
 
     private void detectPlatform() @safe @nogc
     {
-        version (OSX)
-            currentOS = OS.osx;
-        else version (Android)
-            currentOS = OS.android;
-        else version (linux)
-            currentOS = OS.linux;
-        else version (Windows)
-            currentOS = OS.windows;
-        else
-            static assert(0, "Unsupported operating system");
-
         version (X86_64)
-            currentArch = Arch.x86_64;
+            this.currentArch = Arch.x86_64;
         else version (ARM)
-            currentArch = Arch.armv7a;
+            this.currentArch = Arch.armv7a;
         else version (AArch64)
-            currentArch = Arch.aarch64;
+            this.currentArch = Arch.aarch64;
         else
             static assert(0, "Unsupported architecture");
+
+        version (OSX)
+        {
+            this.currentOS = OS.osx;
+            this.currentArch = Arch.universal;
+        }
+        else version (Android)
+            this.currentOS = OS.android;
+        else version (linux)
+            this.currentOS = OS.linux;
+        else version (Windows)
+        {
+            this.currentOS = OS.windows;
+            this.currentArch = Arch.multilib;
+        }
+        else
+            static assert(0, "Unsupported operating system");
     }
 
     void installCompiler(string compilerSpec) @safe
@@ -136,11 +142,6 @@ class CompilerManager
 
         enforce(index < installed.length, fmt(
                 "Invalid index %s; exceeds available installations.", index));
-
-        version (OSX)
-            this.currentArch = Arch.universal;
-        else version (Windows)
-            this.currentArch = Arch.multilib;
 
         immutable string ldc2Dir = buildPath(root, installed[index], format("ldc2-%s-%s-%s",
                 installed[index]["ldc2-".length .. $], this.currentOS, this.currentArch), "bin");
@@ -259,13 +260,18 @@ class CompilerManager
         }
         catch (Exception e)
         {
-            log("Error getting user shell: " ~ e.msg);
-            return "/bin/sh"; // Default fallback
+            writeln("Error getting user shell: " ~ e.msg);
+            throw e;
         }
     }
 
     private string resolveLatestVersion(string compilerSpec) @trusted
     {
+        // latest version is already specified
+        if (compilerSpec.canFind("opend-latest"))
+        {
+            return compilerSpec;
+        }
         // If no specific version is provided, fetch the latest version
         if (compilerSpec.endsWith("latest") || compilerSpec.empty)
         {
@@ -278,7 +284,7 @@ class CompilerManager
             }
             catch (Exception e)
             {
-                log("Error resolving latest version: " ~ e.msg);
+                stderr.writeln("Error resolving latest version: " ~ e.msg);
                 throw e;
             }
         }
@@ -290,12 +296,12 @@ class CompilerManager
                     "https://github.com/ldc-developers/ldc/commits/master.atom"); // @system
                 auto commitHash = strip(response.split(
                         "<id>tag:github.com,2008:Grit::Commit/")[1].split("</id>")[0][0 .. 8]);
-                log("Resolved nightly version: ldc2-" ~ commitHash.to!string);
+                stderr.writeln("Resolved nightly version: ldc2-" ~ commitHash.to!string);
                 return "ldc2-" ~ commitHash.to!string;
             }
             catch (Exception e)
             {
-                log("Error resolving nightly version: " ~ e.msg);
+                stderr.writeln("Error resolving nightly version: " ~ e.msg);
                 throw e;
             }
         }
@@ -307,11 +313,6 @@ class CompilerManager
     {
         string compilerVer = resolveLatestVersion(compilerSpec);
 
-        version (OSX)
-            this.currentArch = Arch.universal;
-        else version (Windows)
-            this.currentArch = Arch.multilib;
-
         if (compilerSpec.startsWith("ldc2-"))
         {
             compilerVersion = compilerVer["ldc2-".length .. $];
@@ -322,6 +323,14 @@ class CompilerManager
                     compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext) : fmt(
                     "https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
                     compilerVersion, this.currentOS, this.currentArch, this.ext);
+        }
+        if (compilerSpec.startsWith("opend-"))
+        {
+            compilerVersion = compilerVer["opend-".length .. $];
+            log("Downloading OpenD-LDC2 for version: " ~ compilerVersion);
+            return fmt(
+                "https://github.com/opendlang/opend/releases/download/CI/opend-%s-%s-%s%s",
+                compilerVersion, this.currentOS, this.currentArch, this.ext);
         }
 
         throw new Exception("Unknown compiler: " ~ compilerSpec);
