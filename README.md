@@ -1,6 +1,6 @@
 # ldcup
 
-Download and manage ldc2 compiler.
+Download and manage LDC2 compiler. [D and OpenD]
 
 > [!NOTE]
 > For DMD, see [dlang website - Downloads](https://dlang.org/download).
@@ -14,6 +14,8 @@ Inspired by [rustup](https://github.com/rust-lang/rustup.rs) and [zigup](https:/
 - Run `ldcup` commands.
 ```bash
 $ ldcup install # default latest version
+# or
+$ ldcup install opend-latest # opend-ldc2 compiler
 # or
 $ ldcup install ldc2-master # latest-CI version
 # or
