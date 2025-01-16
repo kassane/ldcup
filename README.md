@@ -7,10 +7,22 @@ Download and manage LDC2 compiler. [D and OpenD]
 
 Inspired by [rustup](https://github.com/rust-lang/rustup.rs) and [zigup](https://github.com/marler8997/zigup).
 
-## Usage
 
-- Download [precompiled binaries](https://github.com/kassane/ldcup/releases) and extract it.
+### Install
+
+```bash
+$ curl -sSf https://raw.githubusercontent.com/kassane/ldcup/main/scripts/install.sh | sh
+```
+or
+```powershell
+> iwr -useb https://raw.githubusercontent.com/kassane/ldcup/main/scripts/install.ps1 | iex
+```
+or download [precompiled binaries](https://github.com/kassane/ldcup/releases) and extract it.
+
 - Add `ldcup` to your `$PATH`.
+
+### Usage
+
 - Run `ldcup` commands.
 ```bash
 $ ldcup install # default latest version
@@ -31,7 +43,8 @@ $ ldcup list --install-dir=custom-path # list installed compilers in custom path
 $ DC_PATH=customPath ldcup list # list installed compilers in custom path directory
 ```
 
-## Helper
+### Helper
+
 ```console
 $ ldcup                                         
 Usage: ldcup [command] [options]
@@ -46,6 +59,6 @@ Commands:
   --help, -h           Show this help message
 ```
 
-## License
+### License
 
 [Apache-2.0](LICENSE)
