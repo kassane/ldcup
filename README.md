@@ -29,6 +29,8 @@ $ ldcup install # default latest version
 # or
 $ ldcup install opend-latest # opend-ldc2 compiler latest-CI version
 # or
+$ ldcup install ldc2-beta # latest beta version
+# or
 $ ldcup install ldc2-[master or nightly] # latest-CI version
 # or
 $ ldcup install ldc2-${version} # optional: -v

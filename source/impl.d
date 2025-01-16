@@ -16,7 +16,8 @@ enum Arch
     armv7a,
     multilib,
     universal,
-    x86_64
+    x86_64,
+    x64 // openD
 }
 
 class CompilerManager
@@ -290,6 +291,21 @@ class CompilerManager
                 throw e;
             }
         }
+        else if (compilerSpec.endsWith("beta"))
+        {
+            try
+            {
+                auto response = get("https://ldc-developers.github.io/LATEST_BETA"); // @system
+                immutable string latestVersion = strip(response.to!string);
+                log("Resolved latest beta version: ldc2-" ~ latestVersion);
+                return "ldc2-" ~ latestVersion;
+            }
+            catch (Exception e)
+            {
+                stderr.writeln("Error resolving latest beta version: " ~ e.msg);
+                throw e;
+            }
+        }
         else if (compilerSpec.endsWith("nightly") || compilerSpec.endsWith("master"))
         {
             try
@@ -328,6 +344,10 @@ class CompilerManager
         }
         if (compilerSpec.startsWith("opend-"))
         {
+            // opend not have multilib support
+            version (Windows)
+                this.currentArch = Arch.x64;
+
             compilerVersion = compilerVer["opend-".length .. $];
             log("Downloading OpenD-LDC2 for version: " ~ compilerVersion);
             return fmt(
