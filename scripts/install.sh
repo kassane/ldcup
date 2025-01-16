@@ -5,13 +5,18 @@ LDCUP_INSTALL_DIR="$HOME/.dlang"
 ARCHITECTURE=$(uname -m)
 case "$ARCHITECTURE" in
     "x86_64") ARCHITECTURE="amd64" ;;
+    "arm64"|"aarch64") ARCHITECTURE="arm64" ;;
     *)
         echo "Error: Architecture $ARCHITECTURE is not supported yet."
         exit 1
         ;;
 esac
 
-LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.zip"
+if [ "$(uname)" = "Darwin" ] && [ "$ARCHITECTURE" = "arm64" ]; then
+    LDCUP_FILENAME="ldcup-macos-$ARCHITECTURE.zip"
+else
+    LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.zip"
+fi
 LDCUP_URL="$LDCUP_BASE_URL/$LDCUP_FILENAME"
 
 # Create the installation directory if it doesn't exist
