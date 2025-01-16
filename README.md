@@ -27,9 +27,9 @@ or download [precompiled binaries](https://github.com/kassane/ldcup/releases) an
 ```bash
 $ ldcup install # default latest version
 # or
-$ ldcup install opend-latest # opend-ldc2 compiler
+$ ldcup install opend-latest # opend-ldc2 compiler latest-CI version
 # or
-$ ldcup install ldc2-master # latest-CI version
+$ ldcup install ldc2-[master or nightly] # latest-CI version
 # or
 $ ldcup install ldc2-${version} # optional: -v
 $ ldcup list # list installed compilers in default path directory

@@ -50,8 +50,6 @@ class CompilerManager
 
         verbose = false;
         detectPlatform();
-
-        writeln("Installing to " ~ root);
     }
 
     private string defaultInstallRoot() const @safe
@@ -95,6 +93,7 @@ class CompilerManager
 
     void installCompiler(string compilerSpec) @safe
     {
+        writeln("Installing to " ~ root);
         log("Installing compiler: " ~ compilerSpec);
         immutable resolvedCompiler = resolveLatestVersion(compilerSpec);
 
@@ -179,6 +178,8 @@ class CompilerManager
                 configFiles = [".zshrc"];
             else if (userShell.endsWith("bash"))
                 configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
             else
                 configFiles = [".profile"]; // Fallback for other shells
 
@@ -188,7 +189,8 @@ class CompilerManager
                 if (exists(configPath))
                 {
                     string currentPathContent = readText(configPath);
-                    string newPathEntry = fmt("export PATH=$PATH:%s\n", compilerPath);
+                    string newPathEntry = userShell.endsWith("fish")
+                        ? fmt("set -gx PATH $PATH %s\n", compilerPath) : fmt("export PATH=$PATH:%s\n", compilerPath);
 
                     // Check if the path is already in the file to avoid duplication
                     if (!currentPathContent.canFind(compilerPath))
@@ -208,7 +210,7 @@ class CompilerManager
             if (!pathSet)
             {
                 log("No shell configuration file found. Please add the PATH manually or create one of the following files:
-				.bashrc, .zshrc, .profile, .bash_profile.");
+				.bashrc, .zshrc, .profile, .bash_profile, .config/fish/config.fish.");
                 writefln("Manual command:\nexport PATH=$PATH:%s", compilerPath);
             }
         }
