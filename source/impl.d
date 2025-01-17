@@ -5,6 +5,7 @@ public import std;
 enum OS
 {
     android,
+    freebsd,
     linux,
     osx,
     windows
@@ -81,6 +82,8 @@ class CompilerManager
         }
         else version (Android)
             this.currentOS = OS.android;
+        else version (FreeBSD)
+            this.currentOS = OS.freebsd;
         else version (linux)
             this.currentOS = OS.linux;
         else version (Windows)
