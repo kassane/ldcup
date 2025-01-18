@@ -1,5 +1,5 @@
 name: Artifacts
-on: [push, workflow_dispatch]
+on: [push]
 jobs:
   build:
     strategy:
@@ -34,4 +34,27 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}
+          path: bin
+
+  freebsd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test in FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y dub ldc
+          run: |
+            dub -b release
+            dub -b release -- install -v
+            dub -b release -- install ldc2-master -v
+            dub -b release -- list -v
+            dub -b release -- uninstall ldc2-1.40.0 -v
+            dub -b release -- list -v
+            dub -b release -- run -v -- --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ldcup-freebsd-14-${{ matrix.arch }}
           path: bin
