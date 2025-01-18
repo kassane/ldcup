@@ -56,5 +56,5 @@ jobs:
             dub -b release -- run -v -- --version
       - uses: actions/upload-artifact@v4
         with:
-          name: ldcup-freebsd-14-${{ matrix.arch }}
+          name: ldcup-freebsd-14.2-amd64
           path: bin
