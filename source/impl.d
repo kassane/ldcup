@@ -4,6 +4,7 @@ public import std;
 
 enum OS
 {
+    alpine,
     android,
     freebsd,
     linux,
@@ -85,7 +86,12 @@ class CompilerManager
         else version (FreeBSD)
             this.currentOS = OS.freebsd;
         else version (linux)
-            this.currentOS = OS.linux;
+        {
+            version (CRuntime_Musl)
+                this.currentOS = OS.alpine;
+            else
+                this.currentOS = OS.linux;
+        }
         else version (Windows)
         {
             this.currentOS = OS.windows;
@@ -231,9 +237,27 @@ class CompilerManager
     {
         try
         {
-            version (linux)
+            version (FreeBSD)
             {
-                auto result = execute(["getent", "passwd", environment["USER"]]);
+                auto result = execute([
+                    "getent", "passwd", environment.get("USER", "root")
+                ]);
+                if (result.status == 0)
+                {
+
+                    string[] parts = result.output.split(":");
+                    if (parts.length > 6)
+                    {
+
+                        return parts[6].strip();
+                    }
+                }
+            }
+            else version (linux)
+            {
+                auto result = execute([
+                    "getent", "passwd", environment.get("USER", "root")
+                ]);
                 if (result.status == 0)
                 {
                     string[] parts = result.output.split(":");
