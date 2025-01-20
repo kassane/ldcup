@@ -1,5 +1,11 @@
 name: Artifacts
-on: [push]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
 jobs:
   build:
     strategy:
@@ -32,6 +38,7 @@ jobs:
           dub -b release -- list -v
           dub -b release -- run -v -- --version
       - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}
           path: bin
@@ -40,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test in FreeBSD
+      - name: Run FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
@@ -55,6 +62,37 @@ jobs:
             dub -b release -- list -v
             dub -b release -- run -v -- --version
       - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
         with:
           name: ldcup-freebsd-14.2-amd64
+          path: bin
+
+  alpine:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Prepare
+        run: |
+            apk update
+            apk add --no-cache ldc dub clang
+      - name: Build
+        run: |
+            dub -b release
+      # - name: Tests
+      #   run: |
+      #       dub -b release -- install ldc2-nightly -v
+      #       dub -b release -- list -v
+      
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: ldcup-alpine-amd64
           path: bin
