@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   build:
     strategy:
@@ -37,13 +41,31 @@ jobs:
           dub -b release -- uninstall ldc2-1.40.0 -v
           dub -b release -- list -v
           dub -b release -- run -v -- --version
+      - name: Compress artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path bin/* -DestinationPath bin/ldcup-${{ matrix.os }}-${{ matrix.arch }}.zip
+      - name: Compress artifacts (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd bin && tar -cJf ldcup-${{ matrix.os }}-${{ matrix.arch }}.tar.xz *
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}
-          path: bin
+          path: bin/ldcup-${{ matrix.os }}-${{ matrix.arch }}.*
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: 'bin/ldcup-${{ matrix.os }}-${{ matrix.arch }}.*'
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   freebsd:
+    strategy:
+      matrix:
+        arch: [amd64]
+      fail-fast: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,14 +83,23 @@ jobs:
             dub -b release -- uninstall ldc2-1.40.0 -v
             dub -b release -- list -v
             dub -b release -- run -v -- --version
+            tar -cJf bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz -C bin .
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
           name: ldcup-freebsd-14.2-amd64
-          path: bin
+          path: bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: 'bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz'
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   alpine:
     strategy:
+      matrix:
+        arch: [amd64]
       fail-fast: false
     runs-on: ubuntu-latest
     container:
@@ -82,17 +113,24 @@ jobs:
       - name: Prepare
         run: |
             apk update
-            apk add --no-cache ldc dub clang
+            apk add --no-cache ldc dub clang xz
       - name: Build
         run: |
             dub -b release
-      # - name: Tests
-      #   run: |
-      #       dub -b release -- install ldc2-nightly -v
-      #       dub -b release -- list -v
-      
+      - name: Tests
+        run: |
+            dub -b release -- list -v
+      - name: Compress artifacts
+        run: |
+            cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
-          name: ldcup-alpine-amd64
-          path: bin
+          name: ldcup-alpine-${{ matrix.arch }}
+          path: bin/ldcup-alpine-${{ matrix.arch }}.tar.xz
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: 'bin/ldcup-alpine-${{ matrix.arch }}.tar.xz'
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
