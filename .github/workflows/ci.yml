@@ -119,7 +119,9 @@ jobs:
             dub -b release
       - name: Tests
         run: |
+            dub -b release -- install ldc2-master -v
             dub -b release -- list -v
+            dub -b release -- run -v -- --version
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
