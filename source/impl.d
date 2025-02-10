@@ -29,6 +29,7 @@ class CompilerManager
         string root;
         string compilerPath;
         string toolchainExtractPath;
+        string crossPlatform;
         string compilerVersion;
         version (Windows)
             immutable string ext = ".7z";
@@ -39,8 +40,9 @@ class CompilerManager
     }
     bool verbose;
 
-    this(string installRoot) @safe
+    this(string installRoot, string platform) @safe
     {
+        this.crossPlatform = platform;
         if (!installRoot.empty)
             environment["DC_PATH"] = installRoot;
         else if (environment.get("DC_PATH").empty)
@@ -358,16 +360,19 @@ class CompilerManager
     {
         string compilerVer = resolveLatestVersion(compilerSpec);
 
+        // Use custom platform if specified, otherwise use detected platform
+        immutable string platformString = crossPlatform.empty ?
+            fmt("%s-%s", this.currentOS, this.currentArch) : crossPlatform;
+
         if (compilerSpec.startsWith("ldc2-"))
         {
             compilerVersion = compilerVer["ldc2-".length .. $];
             log("Downloading LDC2 for version: " ~ compilerVersion);
 
-            return compilerVersion.match(r"^\d+(\.\d+)*$")
-                ? fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
-                    compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext) : fmt(
-                    "https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
-                    compilerVersion, this.currentOS, this.currentArch, this.ext);
+            return compilerVersion.match(r"^\d+(\.\d+)*$") ?
+                fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s%s",
+                    compilerVersion, compilerVersion, platformString, this.ext) : fmt("https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s%s",
+                    compilerVersion, platformString, this.ext);
         }
         if (compilerSpec.startsWith("opend-"))
         {

@@ -6,6 +6,7 @@ void main(string[] args) @safe
 	bool hasVerbose = false;
 	bool hasAllVersion = false;
 	string installdir;
+	string platform;
 	string command;
 	string compiler = "ldc2-latest";
 	string[] compilerArgs;
@@ -16,6 +17,8 @@ void main(string[] args) @safe
 			hasHelp = true;
 		else if (arg == "--verbose" || arg == "-v")
 			hasVerbose = true;
+		else if (arg.startsWith("--platform="))
+			platform = arg.split("=")[1];
 		else if (arg.startsWith("--install-dir="))
 			installdir = arg.split("=")[1];
 		else if (arg.startsWith("ldc2-") || arg.startsWith("opend-"))
@@ -51,13 +54,14 @@ void main(string[] args) @safe
 		writeln("  list                 List installed compilers");
 		writeln("  run -- [compiler flags] Run a ldc2 compiler with specified flags");
 		writeln("  --install-dir=DIR    Specify the installation directory");
+		writeln("  --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)");
 		writeln("  --verbose, -v        Enable verbose output");
 		writeln("  --remote             List all available compiler releases");
 		writeln("  --help, -h           Show this help message");
 		return;
 	}
 
-	auto installer = new CompilerManager(installdir);
+	auto installer = new CompilerManager(installdir, platform);
 
 	if (hasVerbose)
 		installer.verbose = true;

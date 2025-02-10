@@ -6,7 +6,6 @@ ARCHITECTURE=$(uname -m)
 case "$ARCHITECTURE" in
     "x86_64") ARCHITECTURE="amd64" ;;
     "arm64"|"aarch64") ARCHITECTURE="arm64" ;;
-    "arm") ARCHITECTURE="arm" ;;
     *)
         echo "Error: Architecture $ARCHITECTURE is not supported yet."
         exit 1

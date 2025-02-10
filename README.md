@@ -56,6 +56,7 @@ Commands:
   list                 List installed compilers
   run -- [compiler-flags] Run a ldc2 compiler with specified flags
   --install-dir=DIR    Specify the installation directory
+  --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)
   --verbose, -v        Enable verbose output
   --remote             List all available compiler releases
   --help, -h           Show this help message
