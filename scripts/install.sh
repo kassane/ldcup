@@ -6,19 +6,39 @@ ARCHITECTURE=$(uname -m)
 case "$ARCHITECTURE" in
     "x86_64") ARCHITECTURE="amd64" ;;
     "arm64"|"aarch64") ARCHITECTURE="arm64" ;;
+    "arm") ARCHITECTURE="arm" ;;
     *)
         echo "Error: Architecture $ARCHITECTURE is not supported yet."
         exit 1
         ;;
 esac
 
-if [ "$(uname)" = "Darwin" ] && [ "$ARCHITECTURE" = "arm64" ]; then
-    LDCUP_FILENAME="ldcup-macos-$ARCHITECTURE.zip"
-else
-    LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.zip"
-fi
+OS=$(uname)
+case "$OS" in
+    "Darwin")
+        if [ "$ARCHITECTURE" = "arm64" ]; then
+            LDCUP_FILENAME="ldcup-macos-$ARCHITECTURE.tar.xz"
+        fi
+        ;;
+    "Linux")
+        if command -v apk >/dev/null 2>&1; then
+            LDCUP_FILENAME="ldcup-alpine-$ARCHITECTURE.tar.xz"
+        else
+            if [ "$ARCHITECTURE" = "arm64" ]; then
+                LDCUP_FILENAME="ldcup-ubuntu-24.04-arm-$ARCHITECTURE.tar.xz"
+            else
+                LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.tar.xz"
+            fi
+        fi
+        ;;
+    "FreeBSD")
+        LDCUP_FILENAME="ldcup-freebsd-14.2-$ARCHITECTURE.tar.xz"
+        ;;
+    *)
+        LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.tar.xz"
+        ;;
+esac
 LDCUP_URL="$LDCUP_BASE_URL/$LDCUP_FILENAME"
-
 # Create the installation directory if it doesn't exist
 if [ ! -d "$LDCUP_INSTALL_DIR" ]; then
     echo "Creating installation directory at $LDCUP_INSTALL_DIR..."
@@ -53,7 +73,7 @@ echo "Download complete."
 
 # Extract the downloaded file
 echo "Extracting ldcup..."
-if ! unzip "$LDCUP_INSTALL_DIR/$LDCUP_FILENAME" -d "$LDCUP_INSTALL_DIR"; then
+if ! tar -xJf "$LDCUP_INSTALL_DIR/$LDCUP_FILENAME" -C "$LDCUP_INSTALL_DIR"; then
     echo "Error: Failed to extract $LDCUP_FILENAME. Please check the file and try again."
     rm -f "$LDCUP_INSTALL_DIR/$LDCUP_FILENAME"
     exit 1
@@ -79,6 +99,12 @@ if [ -f "$LDCUP_INSTALL_DIR/ldcup" ]; then
         SHELL_RC="$HOME/.bashrc"
     elif [ -n "$FISH_VERSION" ]; then
         SHELL_RC="$HOME/.config/fish/config.fish"
+    elif [ -n "$SH_VERSION" ]; then
+        SHELL_RC="$HOME/.profile"
+    elif [ "$(uname -s)" = "FreeBSD" ]; then
+        SHELL_RC="$HOME/.profile"
+    elif [ -f "/etc/alpine-release" ]; then
+        SHELL_RC="$HOME/.profile"
     fi
 
     if [ -n "$SHELL_RC" ]; then
@@ -104,7 +130,7 @@ if [ -f "$LDCUP_INSTALL_DIR/ldcup" ]; then
     fi
 
     # Execute ldcup install
-    "$LDCUP_INSTALL_DIR/ldcup" install
+    "$LDCUP_INSTALL_DIR/ldcup" install ldc2-master -v
 else
     echo "Error: ldcup executable not found after extraction. Please check the downloaded files."
     exit 1
