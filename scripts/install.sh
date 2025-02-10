@@ -16,7 +16,7 @@ OS=$(uname)
 case "$OS" in
     "Darwin")
         if [ "$ARCHITECTURE" = "arm64" ]; then
-            LDCUP_FILENAME="ldcup-macos-$ARCHITECTURE.tar.xz"
+            LDCUP_FILENAME="ldcup-macos-latest-$ARCHITECTURE.tar.xz"
         fi
         ;;
     "Linux")
@@ -26,12 +26,12 @@ case "$OS" in
             if [ "$ARCHITECTURE" = "arm64" ]; then
                 LDCUP_FILENAME="ldcup-ubuntu-24.04-arm-$ARCHITECTURE.tar.xz"
             else
-                LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.tar.xz"
+                LDCUP_FILENAME="ldcup-ubuntu-latest-$ARCHITECTURE.tar.xz"
             fi
         fi
         ;;
     "FreeBSD")
-        LDCUP_FILENAME="ldcup-freebsd-14.2-$ARCHITECTURE.tar.xz"
+        LDCUP_FILENAME="ldcup-freebsd14.2-$ARCHITECTURE.tar.xz"
         ;;
     *)
         LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.tar.xz"
