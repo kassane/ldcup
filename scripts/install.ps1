@@ -1,7 +1,7 @@
 $ldcupBaseUrl = "https://github.com/kassane/ldcup/releases/latest/download"
 $ldcupInstallDir = "$HOME\.dlang"
 $architecture = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "x86" }
-$ldcupFileName = "ldcup-windows-$architecture.zip"
+$ldcupFileName = "ldcup-windows-latest-$architecture.zip"
 $ldcupExeFileName = "ldcup.exe"
 $ldcupZipPath = "$ldcupInstallDir\$ldcupFileName"
 $ldcupExePath = "$ldcupInstallDir\$ldcupExeFileName"

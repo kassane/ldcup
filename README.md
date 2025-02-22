@@ -11,11 +11,11 @@ Inspired by [rustup](https://github.com/rust-lang/rustup.rs) and [zigup](https:/
 ### Install
 
 ```bash
-$ curl -sSf https://raw.githubusercontent.com/kassane/ldcup/main/scripts/install.sh | sh
+curl -sSf https://raw.githubusercontent.com/kassane/ldcup/main/scripts/install.sh | sh
 ```
 or
 ```powershell
-> iwr -useb https://raw.githubusercontent.com/kassane/ldcup/main/scripts/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/kassane/ldcup/main/scripts/install.ps1 | iex
 ```
 or download [precompiled binaries](https://github.com/kassane/ldcup/releases) and extract it.
 
