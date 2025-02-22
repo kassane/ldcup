@@ -235,6 +235,51 @@ class CompilerManager
         }
     }
 
+    private void removePathFromShellConfig() @safe
+    {
+        version (Posix)
+        {
+            immutable string userShell = getDefaultUserShell();
+            immutable string homeDir = environment.get("HOME", "~");
+
+            // Same config files as in setEnvInstallPath
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"];
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string content = readText(configPath);
+                    string[] lines = content.splitLines();
+
+                    // Remove lines containing the compiler path
+                    lines = lines.filter!(line => !line.canFind(compilerPath)).array;
+
+                    // Write back the filtered content
+                    std.file.write(configPath, lines.join("\n"));
+                    log("Removed PATH entry from " ~ file);
+                }
+            }
+        }
+        else version (Windows)
+        {
+            // Remove path from Windows user environment
+            immutable string command = fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('PATH', ([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';' | Where-Object { $_ -ne '%s' }) -join ';', 'User')\"", compilerPath);
+            auto result = executeShell(command);
+            enforce(result.status == 0, "Failed to remove PATH: " ~ result.output);
+            log("Removed PATH from user environment.");
+        }
+    }
+
     private string getDefaultUserShell() const @safe
     {
         try
@@ -448,7 +493,7 @@ class CompilerManager
             download(url, targetPath ~ ext);
 
             // Extract the downloaded tarball
-            version (Windows)
+            if (ext.endsWith("7z"))
                 extract7z(targetPath ~ ext, targetPath);
             else
                 extractTarXZ(targetPath ~ ext, targetPath);
@@ -506,7 +551,16 @@ class CompilerManager
         auto compilerPath = buildPath(root, compilerName);
         if (exists(compilerPath))
         {
+            // Set compilerPath for PATH removal
+            this.compilerPath = buildPath(compilerPath, fmt("ldc2-%s-%s-%s", compilerName["ldc2-".length .. $],
+                    this.currentOS, this.currentArch), "bin");
+
+            // Remove PATH entries first
+            removePathFromShellConfig();
+
+            // Then remove the compiler directory
             rmdirRecurse(compilerPath);
+            log("Successfully uninstalled " ~ compilerName);
         }
         else
         {
