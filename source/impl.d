@@ -14,12 +14,14 @@ enum OS
 
 enum Arch
 {
+    arm64,
     aarch64,
     armv7a,
     multilib,
     universal,
     x86_64,
-    x64 // openD
+    x64,
+    x86,
 }
 
 class CompilerManager
@@ -42,7 +44,11 @@ class CompilerManager
 
     this(string installRoot, string platform) @safe
     {
-        this.crossPlatform = platform;
+        if (!platform.empty)
+            this.crossPlatform = platform.toLower;
+        else if (!environment.get("LDC2_PLATFORM").empty)
+            this.crossPlatform = environment.get("LDC2_PLATFORM").toLower;
+
         if (!installRoot.empty)
             environment["DC_PATH"] = installRoot;
         else if (environment.get("DC_PATH").empty)
@@ -69,38 +75,77 @@ class CompilerManager
 
     private void detectPlatform() @safe @nogc
     {
-        version (X86_64)
-            this.currentArch = Arch.x86_64;
-        else version (ARM)
-            this.currentArch = Arch.armv7a;
-        else version (AArch64)
-            this.currentArch = Arch.aarch64;
-        else
-            static assert(0, "Unsupported architecture");
-
-        version (OSX)
+        if (!this.crossPlatform.empty)
         {
-            this.currentOS = OS.osx;
-            this.currentArch = Arch.universal;
-        }
-        else version (Android)
-            this.currentOS = OS.android;
-        else version (FreeBSD)
-            this.currentOS = OS.freebsd;
-        else version (linux)
-        {
-            version (CRuntime_Musl)
-                this.currentOS = OS.alpine;
+            if (this.crossPlatform.endsWith("x86_64"))
+                this.currentArch = Arch.x86_64;
+            else if (this.crossPlatform.endsWith("x64"))
+                this.currentArch = Arch.x64;
+            else if (this.crossPlatform.endsWith("x86"))
+                this.currentArch = Arch.x86;
+            else if (this.crossPlatform.endsWith("aarch64"))
+                this.currentArch = Arch.aarch64;
+            else if (this.crossPlatform.endsWith("arm64"))
+                this.currentArch = Arch.arm64;
+            else if (this.crossPlatform.endsWith("armv7a"))
+                this.currentArch = Arch.armv7a;
+            else if (this.crossPlatform.endsWith("multilib"))
+                this.currentArch = Arch.multilib;
+            else if (this.crossPlatform.endsWith("universal"))
+                this.currentArch = Arch.universal;
             else
+                assert(0, "Unsupported architecture");
+
+            if (this.crossPlatform.startsWith("alpine"))
+                this.currentOS = OS.alpine;
+            else if (this.crossPlatform.startsWith("android"))
+                this.currentOS = OS.android;
+            else if (this.crossPlatform.startsWith("freebsd"))
+                this.currentOS = OS.freebsd;
+            else if (this.crossPlatform.startsWith("linux"))
                 this.currentOS = OS.linux;
-        }
-        else version (Windows)
-        {
-            this.currentOS = OS.windows;
-            this.currentArch = Arch.multilib;
+            else if (this.crossPlatform.startsWith("osx"))
+                this.currentOS = OS.osx;
+            else if (this.crossPlatform.startsWith("windows"))
+                this.currentOS = OS.windows;
+            else
+                assert(0, "Unsupported platform");
         }
         else
-            static assert(0, "Unsupported operating system");
+        {
+            version (X86_64)
+                this.currentArch = Arch.x86_64;
+            else version (ARM)
+                this.currentArch = Arch.armv7a;
+            else version (AArch64)
+                this.currentArch = Arch.aarch64;
+            else
+                static assert(0, "Unsupported architecture");
+
+            version (OSX)
+            {
+                this.currentOS = OS.osx;
+                this.currentArch = Arch.universal;
+            }
+            else version (Android)
+                this.currentOS = OS.android;
+            else version (FreeBSD)
+                this.currentOS = OS.freebsd;
+            else version (linux)
+            {
+                version (CRuntime_Musl)
+                    this.currentOS = OS.alpine;
+                else
+                    this.currentOS = OS.linux;
+            }
+            else version (Windows)
+            {
+                this.currentOS = OS.windows;
+                this.currentArch = Arch.multilib;
+            }
+            else
+                static assert(0, "Unsupported operating system");
+        }
     }
 
     void installCompiler(string compilerSpec) @safe
@@ -116,6 +161,7 @@ class CompilerManager
                 .currentArch), "bin");
 
         setEnvInstallPath();
+        setPersistentEnv();
     }
 
     void runCompiler(ref string compilerSpec, ref string[] args) @safe
@@ -280,6 +326,117 @@ class CompilerManager
         }
     }
 
+    private void setPersistentEnv() @safe
+    {
+        version (Posix)
+        {
+            immutable string userShell = getDefaultUserShell();
+            immutable string homeDir = environment.get("HOME", "~");
+
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"];
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string[] envVars;
+                    if (userShell.endsWith("fish"))
+                    {
+                        envVars = [
+                            fmt("set -gx LDC2_PLATFORM %s-%s", this.currentOS, this.currentArch),
+                            fmt("set -gx LDC2_VERSION %s", this.compilerVersion)
+                        ];
+                    }
+                    else
+                    {
+                        envVars = [
+                            fmt("export LDC2_PLATFORM=%s-%s", this.currentOS, this.currentArch),
+                            fmt("export LDC2_VERSION=%s", this.compilerVersion)
+                        ];
+                    }
+                    append(configPath, envVars.join("\n") ~ "\n");
+                    log("Added environment variables to " ~ file);
+                    break;
+                }
+            }
+        }
+        else version (Windows)
+        {
+            immutable string[] commands = [
+                fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', '%s-%s', 'User')\"",
+                    this.currentOS, this.currentArch),
+                fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', '%s', 'User')\"",
+                    this.compilerVersion)
+            ];
+
+            foreach (cmd; commands)
+            {
+                auto result = executeShell(cmd);
+                enforce(result.status == 0, "Failed to set environment variable: " ~ result.output);
+            }
+            log("Set persistent environment variables in Windows registry");
+        }
+    }
+
+    private void removePersistentEnv() @safe
+    {
+        version (Posix)
+        {
+            immutable string userShell = getDefaultUserShell();
+            immutable string homeDir = environment.get("HOME", "~");
+
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"];
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string content = readText(configPath);
+                    string[] lines = content.splitLines()
+                        .filter!(line => !line.canFind("LDC2_PLATFORM") && !line.canFind(
+                                "LDC2_VERSION"))
+                        .array;
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("Removed environment variables from " ~ file);
+                    break;
+                }
+            }
+        }
+        else version (Windows)
+        {
+            immutable string[] commands = [
+                "powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', $null, 'User')\"",
+                "powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', $null, 'User')\""
+            ];
+
+            foreach (cmd; commands)
+            {
+                auto result = executeShell(cmd);
+                enforce(result.status == 0, "Failed to remove environment variable: " ~ result
+                        .output);
+            }
+            log("Removed persistent environment variables from Windows registry");
+        }
+    }
+
     private string getDefaultUserShell() const @safe
     {
         try
@@ -405,19 +562,16 @@ class CompilerManager
     {
         string compilerVer = resolveLatestVersion(compilerSpec);
 
-        // Use custom platform if specified, otherwise use detected platform
-        immutable string platformString = crossPlatform.empty ?
-            fmt("%s-%s", this.currentOS, this.currentArch) : crossPlatform;
-
         if (compilerSpec.startsWith("ldc2-"))
         {
             compilerVersion = compilerVer["ldc2-".length .. $];
             log("Downloading LDC2 for version: " ~ compilerVersion);
 
-            return compilerVersion.match(r"^\d+(\.\d+)*$") ?
-                fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s%s",
-                    compilerVersion, compilerVersion, platformString, this.ext) : fmt("https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s%s",
-                    compilerVersion, platformString, this.ext);
+            return compilerVersion.match(r"^\d+(\.\d+)*$")
+                ? fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
+                    compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext) : fmt(
+                    "https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
+                    compilerVersion, this.currentOS, this.currentArch, this.ext);
         }
         if (compilerSpec.startsWith("opend-"))
         {
@@ -505,6 +659,8 @@ class CompilerManager
             toolchainExtractPath = buildPath(targetPath, fmt("ldc2-%s-%s-%s", this.compilerVersion, this
                     .currentOS, this
                     .currentArch));
+
+            writeln();
         }
         else
         {
@@ -556,7 +712,8 @@ class CompilerManager
                     this.currentOS, this.currentArch), "bin");
 
             // Remove PATH entries first
-            removePathFromShellConfig();
+            removePathFromShellConfig;
+            removePersistentEnv;
 
             // Then remove the compiler directory
             rmdirRecurse(compilerPath);
