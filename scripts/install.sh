@@ -34,7 +34,7 @@ case "$OS" in
         LDCUP_FILENAME="ldcup-freebsd14.2-$ARCHITECTURE.tar.xz"
         ;;
     *)
-        LDCUP_FILENAME="ldcup-ubuntu-24.04-$ARCHITECTURE.tar.xz"
+        exit 1
         ;;
 esac
 LDCUP_URL="$LDCUP_BASE_URL/$LDCUP_FILENAME"

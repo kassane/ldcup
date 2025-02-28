@@ -73,7 +73,7 @@ class CompilerManager
             return expandTilde("~/dlang");
     }
 
-    private void detectPlatform() @safe @nogc
+    private void detectPlatform() @safe
     {
         if (!this.crossPlatform.empty)
         {
@@ -94,7 +94,7 @@ class CompilerManager
             else if (this.crossPlatform.endsWith("universal"))
                 this.currentArch = Arch.universal;
             else
-                assert(0, "Unsupported architecture");
+                enforce(0, "Unsupported architecture");
 
             if (this.crossPlatform.startsWith("alpine"))
                 this.currentOS = OS.alpine;
@@ -109,7 +109,7 @@ class CompilerManager
             else if (this.crossPlatform.startsWith("windows"))
                 this.currentOS = OS.windows;
             else
-                assert(0, "Unsupported platform");
+                enforce(0, "Unsupported platform");
         }
         else
         {
