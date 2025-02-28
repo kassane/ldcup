@@ -1,4 +1,9 @@
-# ldcup
+ldcup
+=====
+
+![Latest release](https://img.shields.io/github/v/release/kassane/ldcup?include_prereleases&label=latest)
+[![Artifacts](https://github.com/kassane/ldcup/actions/workflows/ci.yml/badge.svg)](https://github.com/kassane/ldcup/actions/workflows/ci.yml)
+![Image](https://github.com/user-attachments/assets/c4259d2a-630f-414d-9aa6-1fe0c2ba4c23)
 
 Download and manage LDC2 compiler. [D and OpenD]
 
