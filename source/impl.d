@@ -190,7 +190,12 @@ class CompilerManager
             version (AArch64)
                 immutable redubFile = "redub-ubuntu-24.04-arm-arm64";
             else
-                immutable redubFile = fmt("redub-ubuntu-latest-%s", this.currentArch);
+            {
+                version (CRuntime_Musl)
+                    immutable redubFile = fmt("redub-%s-%s", this.currentOS, this.currentArch);
+                else
+                    immutable redubFile = fmt("redub-ubuntu-latest-%s", this.currentArch);
+            }
         }
         else version (OSX)
             immutable redubFile = fmt("redub-%s-latest-%s", this.currentOS, this.currentArch);
