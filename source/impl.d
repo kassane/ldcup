@@ -312,6 +312,9 @@ class CompilerManager
                     std.file.write(configPath, lines.join("\n") ~ "\n");
                     log("PATH updated in " ~ file ~ ". Changes will apply on next shell session start or after sourcing " ~ file ~ ".");
 
+                    // Source the config file to reload immediately
+                    executeShell(fmt("source %s", configPath));
+
                     pathSet = true;
                     break; // Stop once we've updated or checked one file
                 }
