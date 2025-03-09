@@ -170,10 +170,10 @@ class CompilerManager
         string rootPath;
         if (exists(compilerPath) && !compilerPath.empty)
             rootPath = compilerPath;
-        else if (environment.get("LDC_PATH").empty)
-            enforce(0, "Missing LDC_PATH environment variable");
-        else
+        else if (!environment.get("LDC_PATH").empty)
             rootPath = environment.get("LDC_PATH");
+        else
+            enforce(0, "Missing installed compiler");
 
         writeln("Installing redub to " ~ rootPath);
         log("Installing redub build system");
