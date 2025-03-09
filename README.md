@@ -60,7 +60,8 @@ Commands:
   install [compiler]   Install a ldc2 compiler (default: ldc2-latest)
   uninstall [compiler] Uninstall a specific compiler
   list                 List installed compilers
-  run -- [compiler-flags] Run a ldc2 compiler with specified flags
+  redub                Install redub build system
+  run -- <ldc2-flags>  Run a ldc2 compiler with specified flags
   --install-dir=DIR    Specify the installation directory
   --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)
   --verbose, -v        Enable verbose output
