@@ -98,7 +98,7 @@ if [ -f "$LDCUP_INSTALL_DIR/ldcup" ]; then
         SHELL_RC="$HOME/.bashrc"
     elif [ -n "$FISH_VERSION" ]; then
         SHELL_RC="$HOME/.config/fish/config.fish"
-    elif [ -n "$SH_VERSION" ] || [ -n "$(echo $SHELL | grep -i sh)" ]; then
+    elif [ -n "$SH_VERSION" ]; then
         SHELL_RC="$HOME/.profile"
     elif [ "$(uname -s)" = "FreeBSD" ]; then
         SHELL_RC="$HOME/.profile"
