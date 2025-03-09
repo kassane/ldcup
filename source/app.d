@@ -22,6 +22,14 @@ void main(string[] args) @safe
 		else if (arg.startsWith("--install-dir="))
 			installdir = arg.split("=")[1];
 		else if (arg.startsWith("ldc2-") || arg.startsWith("opend-"))
+		{
+			// Remove the 'v' from version string
+			if (arg.startsWith("ldc2-v") || arg.startsWith("opend-v"))
+				compiler = arg[0 .. $].replace("v", "");
+			else
+				compiler = arg;
+		}
+		else if (arg.canFind("redub"))
 			compiler = arg;
 		else if (arg == "--remote")
 			hasAllVersion = true;
@@ -52,7 +60,7 @@ void main(string[] args) @safe
 		writeln("  install [compiler]   Install a ldc2 compiler (default: ldc2-latest)");
 		writeln("  uninstall [compiler] Uninstall a specific compiler");
 		writeln("  list                 List installed compilers");
-		writeln("  run -- [compiler flags] Run a ldc2 compiler with specified flags");
+		writeln("  run -- <ldc2-flags>  Run a ldc2 compiler with specified flags");
 		writeln("  --install-dir=DIR    Specify the installation directory");
 		writeln("  --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)");
 		writeln("  --verbose, -v        Enable verbose output");

@@ -150,18 +150,91 @@ class CompilerManager
 
     void installCompiler(string compilerSpec) @safe
     {
-        writeln("Installing to " ~ root);
-        log("Installing compiler: " ~ compilerSpec);
-        immutable resolvedCompiler = resolveLatestVersion(compilerSpec);
+        if (compilerSpec.canFind("redub"))
+            installRedub();
+        else
+        {
+            writeln("Installing to " ~ root);
+            log("Installing compiler: " ~ compilerSpec);
+            immutable resolvedCompiler = resolveLatestVersion(compilerSpec);
 
-        immutable downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
-        downloadAndExtract(downloadUrl, buildPath(root, resolvedCompiler));
+            immutable downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
+            downloadAndExtract(downloadUrl, buildPath(root, resolvedCompiler));
 
-        compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this.currentOS, this
-                .currentArch), "bin");
+            compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this.currentOS, this
+                    .currentArch), "bin");
 
-        setEnvInstallPath();
-        setPersistentEnv();
+            setEnvInstallPath();
+            setPersistentEnv();
+        }
+    }
+
+    void installRedub() @safe
+    {
+        string rootPath;
+        if (!environment.get("LDC_PATH").empty)
+            rootPath = environment.get("LDC_PATH");
+        if (exists(compilerPath) || !compilerPath.empty)
+            rootPath = compilerPath;
+
+        if (rootPath.empty)
+            enforce(0, "Missing installed compiler");
+
+        writeln("Installing redub to " ~ rootPath);
+        log("Installing redub build system");
+
+        string redubUrl = "https://github.com/MrcSnm/redub/releases/latest/download";
+        string redubFile;
+
+        version (Windows)
+            redubFile = fmt("redub-%s-latest-%s.exe", this.currentOS, this.currentArch);
+        else version (FreeBSD)
+            enforce(0, "Redub is not supported on FreeBSD");
+        else version (Android)
+            enforce(0, "Redub is not supported on Android");
+        else version (linux)
+        {
+            version (AArch64)
+                redubFile = "redub-ubuntu-24.04-arm-arm64";
+            else
+            {
+                version (CRuntime_Musl)
+                    redubFile = fmt("redub-%s-%s", this.currentOS, this.currentArch);
+                else
+                    redubFile = fmt("redub-ubuntu-latest-%s", this.currentArch);
+            }
+        }
+        else version (OSX)
+            redubFile = fmt("redub-%s-latest-%s", this.currentOS, this.currentArch);
+        else
+            static assert(0, "Unsupported operating system");
+
+        version (FreeBSD)
+        {
+        }
+        version (Android)
+        {
+        }
+        else
+        {
+            redubUrl ~= "/" ~ redubFile;
+
+            version (Windows)
+                immutable string redubExe = buildPath(rootPath, "redub.exe");
+            else
+                immutable string redubExe = buildPath(rootPath, "redub");
+
+            if (!exists(redubExe))
+                download(redubUrl, redubExe);
+            else
+                log("Redub already installed");
+
+            version (Posix)
+            {
+                // Make executable
+                executeShell("chmod +x " ~ redubExe);
+            }
+        }
     }
 
     void runCompiler(ref string compilerSpec, ref string[] args) @safe

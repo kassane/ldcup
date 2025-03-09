@@ -92,13 +92,13 @@ if [ -f "$LDCUP_INSTALL_DIR/ldcup" ]; then
     
     # Add environment variables to shell rc file
     SHELL_RC=""
-    if [ -n "$ZSH_VERSION" ]; then
+    if [ -n "$ZSH_VERSION" ] || [ -n "$(echo $SHELL | grep -i zsh)" ]; then
         SHELL_RC="$HOME/.zshrc"
     elif [ -n "$BASH_VERSION" ]; then
         SHELL_RC="$HOME/.bashrc"
     elif [ -n "$FISH_VERSION" ]; then
         SHELL_RC="$HOME/.config/fish/config.fish"
-    elif [ -n "$SH_VERSION" ]; then
+    elif [ -n "$SH_VERSION" ] || [ -n "$(echo $SHELL | grep -i sh)" ]; then
         SHELL_RC="$HOME/.profile"
     elif [ "$(uname -s)" = "FreeBSD" ]; then
         SHELL_RC="$HOME/.profile"
@@ -128,8 +128,10 @@ if [ -f "$LDCUP_INSTALL_DIR/ldcup" ]; then
         echo 'export PATH=$PATH:$LDCUP_DIR'
     fi
 
-    # Execute ldcup install
-    "$LDCUP_INSTALL_DIR/ldcup" install ldc2-master -v
+    # Install ldc2
+    "$LDCUP_INSTALL_DIR/ldcup" install ldc2-latest -v
+    # reload shell rc file
+    source $SHELL_RC
 else
     echo "Error: ldcup executable not found after extraction. Please check the downloaded files."
     exit 1
