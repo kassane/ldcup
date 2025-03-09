@@ -125,6 +125,7 @@ jobs:
             source $HOME/.profile
             dub -b release -- redub -v
             dub -b release -- run -v -- --version
+            redub --version
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
