@@ -117,6 +117,7 @@ jobs:
       - name: Build
         run: |
             dub -b release
+            touch $HOME/.profile
       - name: Tests
         run: |
             dub -b release -- install ldc2-master -v
