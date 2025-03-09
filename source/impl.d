@@ -167,7 +167,7 @@ class CompilerManager
 
     void installRedub() @safe
     {
-        immutable string rootPath;
+        string rootPath;
         if (exists(compilerPath) && !compilerPath.empty)
             rootPath = compilerPath;
         else if (environment.get("LDC_PATH").empty)
