@@ -167,9 +167,14 @@ class CompilerManager
 
     void installRedub() @safe
     {
-        if (environment.get("LDC_PATH").empty)
+        immutable string rootPath;
+        if (exists(compilerPath) && !compilerPath.empty)
+            rootPath = compilerPath;
+        else if (environment.get("LDC_PATH").empty)
             enforce(0, "Missing LDC_PATH environment variable");
-        immutable string rootPath = environment.get("LDC_PATH");
+        else
+            rootPath = environment.get("LDC_PATH");
+
         writeln("Installing redub to " ~ rootPath);
         log("Installing redub build system");
 
