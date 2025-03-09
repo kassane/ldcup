@@ -39,7 +39,9 @@ $ ldcup install ldc2-beta # latest beta version
 # or
 $ ldcup install ldc2-[master or nightly] # latest-CI version
 # or
-$ ldcup install ldc2-${version} # optional: -v
+$ ldcup install ldc2-${version}
+# or
+$ ldcup install redub # redub build-system (dub fork) - need ldc2 installed
 $ ldcup list # list installed compilers in default path directory
 $ ldcup list --remote # list all available compiler releases
 $ ldcup uninstall ldc2-${version}
@@ -60,7 +62,6 @@ Commands:
   install [compiler]   Install a ldc2 compiler (default: ldc2-latest)
   uninstall [compiler] Uninstall a specific compiler
   list                 List installed compilers
-  redub                Install redub build system
   run -- <ldc2-flags>  Run a ldc2 compiler with specified flags
   --install-dir=DIR    Specify the installation directory
   --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)

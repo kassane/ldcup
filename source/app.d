@@ -29,6 +29,8 @@ void main(string[] args) @safe
 			else
 				compiler = arg;
 		}
+		else if (arg.canFind("redub"))
+			compiler = arg;
 		else if (arg == "--remote")
 			hasAllVersion = true;
 		else if (arg.endsWith("--"))
@@ -58,7 +60,6 @@ void main(string[] args) @safe
 		writeln("  install [compiler]   Install a ldc2 compiler (default: ldc2-latest)");
 		writeln("  uninstall [compiler] Uninstall a specific compiler");
 		writeln("  list                 List installed compilers");
-		writeln("  redub                Install redub build system");
 		writeln("  run -- <ldc2-flags>  Run a ldc2 compiler with specified flags");
 		writeln("  --install-dir=DIR    Specify the installation directory");
 		writeln("  --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)");
@@ -89,9 +90,6 @@ void main(string[] args) @safe
 		break;
 	case "run":
 		installer.runCompiler(compiler, compilerArgs);
-		break;
-	case "redub":
-		installer.installRedub();
 		break;
 	default:
 		writeln("Unknown command. Use install, uninstall, or list.");

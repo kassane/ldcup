@@ -123,7 +123,7 @@ jobs:
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
             source $HOME/.profile
-            dub -b release -- redub -v
+            dub -b release -- install redub -v
             dub -b release -- run -v -- --version
             redub --version
       - name: Compress artifacts

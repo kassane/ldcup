@@ -30,7 +30,6 @@ class CompilerManager
     {
         string root;
         string compilerPath;
-        string redubPath;
         string toolchainExtractPath;
         string crossPlatform;
         string compilerVersion;
@@ -151,18 +150,23 @@ class CompilerManager
 
     void installCompiler(string compilerSpec) @safe
     {
-        writeln("Installing to " ~ root);
-        log("Installing compiler: " ~ compilerSpec);
-        immutable resolvedCompiler = resolveLatestVersion(compilerSpec);
+        if (compilerSpec.canFind("redub"))
+            installRedub();
+        else
+        {
+            writeln("Installing to " ~ root);
+            log("Installing compiler: " ~ compilerSpec);
+            immutable resolvedCompiler = resolveLatestVersion(compilerSpec);
 
-        immutable downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
-        downloadAndExtract(downloadUrl, buildPath(root, resolvedCompiler));
+            immutable downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
+            downloadAndExtract(downloadUrl, buildPath(root, resolvedCompiler));
 
-        compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this.currentOS, this
-                .currentArch), "bin");
+            compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this.currentOS, this
+                    .currentArch), "bin");
 
-        setEnvInstallPath();
-        setPersistentEnv();
+            setEnvInstallPath();
+            setPersistentEnv();
+        }
     }
 
     void installRedub() @safe
@@ -204,15 +208,15 @@ class CompilerManager
 
         redubUrl ~= "/" ~ redubFile;
 
-        redubPath = rootPath;
-        if (!exists(redubPath))
-            mkdirRecurse(redubPath);
-
         version (Windows)
-            string redubExe = buildPath(redubPath, "redub.exe");
+            string redubExe = buildPath(rootPath, "redub.exe");
         else
-            immutable redubExe = buildPath(redubPath, "redub");
-        download(redubUrl, redubExe);
+            immutable redubExe = buildPath(rootPath, "redub");
+
+        if (!exists(redubExe))
+            download(redubUrl, redubExe);
+        else
+            log("Redub already installed");
 
         version (Posix)
         {
