@@ -184,44 +184,56 @@ class CompilerManager
         log("Installing redub build system");
 
         string redubUrl = "https://github.com/MrcSnm/redub/releases/latest/download";
+        string redubFile;
 
         version (Windows)
-            immutable redubFile = fmt("redub-%s-latest-%s.exe", this.currentOS, this.currentArch);
+            redubFile = fmt("redub-%s-latest-%s.exe", this.currentOS, this.currentArch);
         else version (FreeBSD)
             enforce(0, "Redub is not supported on FreeBSD");
+        else version (Android)
+            enforce(0, "Redub is not supported on Android");
         else version (linux)
         {
             version (AArch64)
-                immutable redubFile = "redub-ubuntu-24.04-arm-arm64";
+                redubFile = "redub-ubuntu-24.04-arm-arm64";
             else
             {
                 version (CRuntime_Musl)
-                    immutable redubFile = fmt("redub-%s-%s", this.currentOS, this.currentArch);
+                    redubFile = fmt("redub-%s-%s", this.currentOS, this.currentArch);
                 else
-                    immutable redubFile = fmt("redub-ubuntu-latest-%s", this.currentArch);
+                    redubFile = fmt("redub-ubuntu-latest-%s", this.currentArch);
             }
         }
         else version (OSX)
-            immutable redubFile = fmt("redub-%s-latest-%s", this.currentOS, this.currentArch);
+            redubFile = fmt("redub-%s-latest-%s", this.currentOS, this.currentArch);
         else
             static assert(0, "Unsupported operating system");
 
-        redubUrl ~= "/" ~ redubFile;
-
-        version (Windows)
-            string redubExe = buildPath(rootPath, "redub.exe");
-        else
-            immutable redubExe = buildPath(rootPath, "redub");
-
-        if (!exists(redubExe))
-            download(redubUrl, redubExe);
-        else
-            log("Redub already installed");
-
-        version (Posix)
+        version (FreeBSD)
         {
-            // Make executable
-            executeShell("chmod +x " ~ redubExe);
+        }
+        version (Android)
+        {
+        }
+        else
+        {
+            redubUrl ~= "/" ~ redubFile;
+
+            version (Windows)
+                string redubExe = buildPath(rootPath, "redub.exe");
+            else
+                immutable redubExe = buildPath(rootPath, "redub");
+
+            if (!exists(redubExe))
+                download(redubUrl, redubExe);
+            else
+                log("Redub already installed");
+
+            version (Posix)
+            {
+                // Make executable
+                executeShell("chmod +x " ~ redubExe);
+            }
         }
     }
 
