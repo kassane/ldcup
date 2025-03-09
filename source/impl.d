@@ -30,6 +30,7 @@ class CompilerManager
     {
         string root;
         string compilerPath;
+        string redubPath;
         string toolchainExtractPath;
         string crossPlatform;
         string compilerVersion;
@@ -162,6 +163,51 @@ class CompilerManager
 
         setEnvInstallPath();
         setPersistentEnv();
+    }
+
+    void installRedub() @safe
+    {
+        if (environment.get("LDC_PATH").empty)
+            enforce(0, "Missing LDC_PATH environment variable");
+        immutable string rootPath = environment.get("LDC_PATH");
+        writeln("Installing redub to " ~ rootPath);
+        log("Installing redub build system");
+
+        string redubUrl = "https://github.com/MrcSnm/redub/releases/latest/download";
+
+        version (Windows)
+            immutable redubFile = fmt("redub-%s-latest-%s.exe", this.currentOS, this.currentArch);
+        else version (FreeBSD)
+            static assert(0, "Redub is not supported on FreeBSD");
+        else version (linux)
+        {
+            version (AArch64)
+                immutable redubFile = "redub-ubuntu-24.04-arm-arm64";
+            else
+                immutable redubFile = fmt("redub-ubuntu-latest-%s", this.currentArch);
+        }
+        else version (OSX)
+            immutable redubFile = fmt("redub-%s-latest-%s", this.currentOS, this.currentArch);
+        else
+            static assert(0, "Unsupported operating system");
+
+        redubUrl ~= "/" ~ redubFile;
+
+        redubPath = rootPath;
+        if (!exists(redubPath))
+            mkdirRecurse(redubPath);
+
+        version (Windows)
+            string redubExe = buildPath(redubPath, "redub.exe");
+        else
+            immutable redubExe = buildPath(redubPath, "redub");
+        download(redubUrl, redubExe);
+
+        version (Posix)
+        {
+            // Make executable
+            executeShell("chmod +x " ~ redubExe);
+        }
     }
 
     void runCompiler(ref string compilerSpec, ref string[] args) @safe

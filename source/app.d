@@ -83,6 +83,9 @@ void main(string[] args) @safe
 	case "run":
 		installer.runCompiler(compiler, compilerArgs);
 		break;
+	case "redub":
+		installer.installRedub();
+		break;
 	default:
 		writeln("Unknown command. Use install, uninstall, or list.");
 	}

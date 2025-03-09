@@ -40,6 +40,7 @@ jobs:
           dub -b release -- list -v
           dub -b release -- uninstall ldc2-1.40.0 -v
           dub -b release -- list -v
+          dub -b release -- redub -v
           dub -b release -- run -v -- --version
       - name: Compress artifacts (Windows)
         if: runner.os == 'Windows'
@@ -121,6 +122,7 @@ jobs:
         run: |
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
+            dub -b release -- redub -v
             dub -b release -- run -v -- --version
       - name: Compress artifacts
         run: |
