@@ -220,9 +220,9 @@ class CompilerManager
             redubUrl ~= "/" ~ redubFile;
 
             version (Windows)
-                string redubExe = buildPath(rootPath, "redub.exe");
+                immutable string redubExe = buildPath(rootPath, "redub.exe");
             else
-                immutable redubExe = buildPath(rootPath, "redub");
+                immutable string redubExe = buildPath(rootPath, "redub");
 
             if (!exists(redubExe))
                 download(redubUrl, redubExe);
