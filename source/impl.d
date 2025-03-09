@@ -247,19 +247,25 @@ class CompilerManager
                 if (exists(configPath))
                 {
                     string currentPathContent = readText(configPath);
+                    string ldcPathEntry = fmt("export LDC_PATH=%s", compilerPath);
                     string newPathEntry = userShell.endsWith("fish")
-                        ? fmt("set -gx PATH $PATH %s\n", compilerPath) : fmt("export PATH=$PATH:%s\n", compilerPath);
+                        ? fmt("set -gx PATH $PATH $LDC_PATH\n") : fmt(
+                            "export PATH=$PATH:$LDC_PATH\n");
 
-                    // Check if the path is already in the file to avoid duplication
-                    if (!currentPathContent.canFind(compilerPath))
-                    {
-                        append(configPath, newPathEntry);
-                        log("PATH updated in " ~ file ~ ". Changes will apply on next shell session start or after sourcing " ~ file ~ ".");
-                    }
-                    else
-                    {
-                        log("PATH entry already exists in " ~ file ~ ". No update necessary.");
-                    }
+                    // Remove existing entries and overwrite
+                    string[] lines = currentPathContent.splitLines();
+
+                    lines = lines.filter!(line =>
+                            !line.canFind(compilerPath) &&
+                            !line.canFind("LDC_PATH=") &&
+                            !line.canFind("export PATH=$PATH:$LDC_PATH") &&
+                            !line.canFind("set -gx PATH $PATH $LDC_PATH")).array;
+
+                    lines ~= [ldcPathEntry, newPathEntry];
+
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("PATH updated in " ~ file ~ ". Changes will apply on next shell session start or after sourcing " ~ file ~ ".");
+
                     pathSet = true;
                     break; // Stop once we've updated or checked one file
                 }
@@ -269,12 +275,12 @@ class CompilerManager
             {
                 log("No shell configuration file found. Please add the PATH manually or create one of the following files:
 				.bashrc, .zshrc, .profile, .bash_profile, .config/fish/config.fish.");
-                writefln("Manual command:\nexport PATH=$PATH:%s", compilerPath);
+                writefln("Manual command:\nexport PATH=%s:$PATH", compilerPath);
             }
         }
         else version (Windows)
         {
-            immutable string command = fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + '%s', 'User')\"", compilerPath);
+            immutable string command = fmt("powershell -Command \"$currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User'); if (!$currentPath.Contains('%s')) { [Environment]::SetEnvironmentVariable('PATH', $currentPath + ';' + '%s', 'User') }\"", compilerPath, compilerPath);
             auto result = executeShell(command);
             enforce(result.status == 0, "Failed to set PATH: " ~ result.output);
             log("PATH updated in user environment.");
@@ -307,12 +313,20 @@ class CompilerManager
                     string content = readText(configPath);
                     string[] lines = content.splitLines();
 
-                    // Remove lines containing the compiler path
-                    lines = lines.filter!(line => !line.canFind(compilerPath)).array;
+                    // Remove lines containing the compiler path or LDC-related entries
+                    lines = lines.filter!(line =>
+                            !line.canFind(compilerPath) &&
+                            !line.canFind("LDC_PATH=") &&
+                            !line.canFind("export PATH=$PATH:$LDC_PATH") &&
+                            !line.canFind("set -gx PATH $PATH $LDC_PATH") &&
+                            !line.canFind("LDC2_PLATFORM") &&
+                            !line.canFind("LDC2_VERSION")
+                    ).array;
 
                     // Write back the filtered content
-                    std.file.write(configPath, lines.join("\n"));
-                    log("Removed PATH entry from " ~ file);
+
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("Removed PATH and environment entries from " ~ file);
                 }
             }
         }
@@ -348,34 +362,43 @@ class CompilerManager
                 immutable string configPath = buildPath(homeDir, file);
                 if (exists(configPath))
                 {
-                    string[] envVars;
-                    if (userShell.endsWith("fish"))
-                    {
-                        envVars = [
-                            fmt("set -gx LDC2_PLATFORM %s-%s", this.currentOS, this.currentArch),
-                            fmt("set -gx LDC2_VERSION %s", this.compilerVersion)
-                        ];
-                    }
-                    else
-                    {
-                        envVars = [
-                            fmt("export LDC2_PLATFORM=%s-%s", this.currentOS, this.currentArch),
-                            fmt("export LDC2_VERSION=%s", this.compilerVersion)
-                        ];
-                    }
-                    append(configPath, envVars.join("\n") ~ "\n");
-                    log("Added environment variables to " ~ file);
+                    string content = readText(configPath);
+                    string[] lines = content.splitLines();
+
+                    string platformVar = userShell.endsWith("fish")
+
+                        ? fmt("set -gx LDC2_PLATFORM %s-%s", this.currentOS, this.currentArch) : fmt(
+                            "export LDC2_PLATFORM=%s-%s", this.currentOS, this.currentArch);
+
+                    string versionVar = userShell.endsWith("fish")
+
+                        ? fmt("set -gx LDC2_VERSION %s", this.compilerVersion) : fmt("export LDC2_VERSION=%s", this
+                                .compilerVersion);
+
+                    // Remove existing environment variables if they exist
+                    lines = lines.filter!(line =>
+                            !line.canFind("LDC2_PLATFORM") &&
+                            !line.canFind("LDC2_VERSION")
+                    ).array;
+
+                    // Append new environment variables
+                    lines ~= platformVar;
+                    lines ~= versionVar;
+
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("Updated environment variables in " ~ file);
                     break;
                 }
             }
         }
         else version (Windows)
         {
+            immutable string platformValue = fmt("%s-%s", this.currentOS, this.currentArch);
             immutable string[] commands = [
-                fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', '%s-%s', 'User')\"",
-                    this.currentOS, this.currentArch),
-                fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', '%s', 'User')\"",
-                    this.compilerVersion)
+
+                fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', '%s', 'User')\"", platformValue),
+                fmt("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', '%s', 'User')\"", this
+                        .compilerVersion)
             ];
 
             foreach (cmd; commands)
