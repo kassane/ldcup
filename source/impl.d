@@ -168,10 +168,10 @@ class CompilerManager
     void installRedub() @safe
     {
         string rootPath;
-        if (exists(compilerPath) && !compilerPath.empty)
-            rootPath = compilerPath;
-        else if (!environment.get("LDC_PATH").empty)
+        if (!environment.get("LDC_PATH").empty)
             rootPath = environment.get("LDC_PATH");
+        if (exists(compilerPath) || !compilerPath.empty)
+            rootPath = compilerPath;
         else
             enforce(0, "Missing installed compiler");
 
@@ -183,7 +183,7 @@ class CompilerManager
         version (Windows)
             immutable redubFile = fmt("redub-%s-latest-%s.exe", this.currentOS, this.currentArch);
         else version (FreeBSD)
-            static assert(0, "Redub is not supported on FreeBSD");
+            enforce(0, "Redub is not supported on FreeBSD");
         else version (linux)
         {
             version (AArch64)
