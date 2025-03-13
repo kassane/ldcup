@@ -24,6 +24,13 @@ enum Arch
     x86,
 }
 
+enum Releases
+{
+    latest,
+    beta,
+    nightly,
+}
+
 class CompilerManager
 {
     private
@@ -39,6 +46,7 @@ class CompilerManager
             immutable string ext = ".tar.xz";
         OS currentOS;
         Arch currentArch;
+        Releases rel;
     }
     bool verbose;
 
@@ -605,6 +613,8 @@ class CompilerManager
         // If no specific version is provided, fetch the latest version
         if (compilerSpec.endsWith("latest") || compilerSpec.empty)
         {
+            scope (exit)
+                this.rel = Releases.latest;
             try
             {
                 auto response = get("https://ldc-developers.github.io/LATEST"); // @system
@@ -620,6 +630,8 @@ class CompilerManager
         }
         else if (compilerSpec.endsWith("beta"))
         {
+            scope (exit)
+                this.rel = Releases.beta;
             try
             {
                 auto response = get("https://ldc-developers.github.io/LATEST_BETA"); // @system
@@ -635,6 +647,8 @@ class CompilerManager
         }
         else if (compilerSpec.endsWith("nightly") || compilerSpec.endsWith("master"))
         {
+            scope (exit)
+                this.rel = Releases.nightly;
             try
             {
                 auto response = get(
@@ -663,11 +677,18 @@ class CompilerManager
             compilerVersion = compilerVer["ldc2-".length .. $];
             log("Downloading LDC2 for version: " ~ compilerVersion);
 
-            return compilerVersion.match(r"^\d+(\.\d+)*$")
-                ? fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
-                    compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext) : fmt(
-                    "https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
+            final switch (this.rel)
+            {
+            case Releases.latest:
+                return fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
+                    compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext);
+            case Releases.nightly:
+                return fmt("https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-%s-%s-%s%s",
                     compilerVersion, this.currentOS, this.currentArch, this.ext);
+            case Releases.beta:
+                return fmt("https://github.com/ldc-developers/ldc/releases/download/v%s/ldc2-%s-%s-%s%s",
+                    compilerVersion, compilerVersion, this.currentOS, this.currentArch, this.ext);
+            }
         }
         if (compilerSpec.startsWith("opend-"))
         {
