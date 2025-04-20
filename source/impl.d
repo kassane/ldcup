@@ -169,8 +169,14 @@ class CompilerManager
             immutable downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
             downloadAndExtract(downloadUrl, buildPath(root, resolvedCompiler));
 
-            compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this.currentOS, this
-                    .currentArch), "bin");
+            if (compilerSpec.canFind("opend"))
+                compilerPath = buildPath(root, resolvedCompiler, fmt("opend-%s-%s-%s", this.compilerVersion, this
+                        .currentOS, this
+                        .currentArch), "bin");
+            else
+                compilerPath = buildPath(root, resolvedCompiler, fmt("ldc2-%s-%s-%s", this.compilerVersion, this
+                        .currentOS, this
+                        .currentArch), "bin");
 
             setEnvInstallPath();
             setPersistentEnv();
