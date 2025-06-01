@@ -62,10 +62,10 @@ public:
 
     this(string installRoot, string platform) @safe
     {
-        root = installRoot.empty ? environment.get("DC_PATH", defaultInstallRoot) : installRoot;
+        root = installRoot.empty ? environment.get("LDC2_ROOTPATH", defaultInstallRoot) : installRoot;
         if (!exists(root))
             mkdirRecurse(root);
-        environment["DC_PATH"] = root;
+        environment["LDC2_ROOTPATH"] = root;
 
         detectPlatform(platform.empty ? environment.get("LDC2_PLATFORM") : platform);
         verbose = false;
@@ -143,7 +143,7 @@ public:
 
     void installRedub() @safe
     {
-        auto rootPath = environment.get("LDC_PATH", compilerPath);
+        auto rootPath = environment.get("LDC2_PATH", compilerPath);
         log("Installing redub to %s", rootPath);
 
         string redubFile;
@@ -232,19 +232,19 @@ public:
                 if (exists(configPath))
                 {
                     string currentPathContent = readText(configPath);
-                    string ldcPathEntry = format("export LDC_PATH=%s", compilerPath);
+                    string ldcPathEntry = format("export LDC2_PATH=%s", compilerPath);
                     string newPathEntry = userShell.endsWith("fish")
-                        ? format("set -gx PATH $PATH $LDC_PATH\n") : format(
-                            "export PATH=$PATH:$LDC_PATH\n");
+                        ? format("set -gx PATH $PATH $LDC2_PATH\n") : format(
+                            "export PATH=$PATH:$LDC2_PATH\n");
 
                     // Remove existing entries and overwrite
                     string[] lines = currentPathContent.splitLines();
 
                     lines = lines.filter!(line =>
                             !line.canFind(compilerPath) &&
-                            !line.canFind("LDC_PATH=") &&
-                            !line.canFind("export PATH=$PATH:$LDC_PATH") &&
-                            !line.canFind("set -gx PATH $PATH $LDC_PATH")).array;
+                            !line.canFind("LDC2_PATH=") &&
+                            !line.canFind("export PATH=$PATH:$LDC2_PATH") &&
+                            !line.canFind("set -gx PATH $PATH $LDC2_PATH")).array;
 
                     lines ~= [ldcPathEntry, newPathEntry];
 
@@ -301,9 +301,9 @@ public:
                     // Remove lines containing the compiler path or LDC-related entries
                     lines = lines.filter!(line =>
                             !line.canFind(compilerPath) &&
-                            !line.canFind("LDC_PATH=") &&
-                            !line.canFind("export PATH=$PATH:$LDC_PATH") &&
-                            !line.canFind("set -gx PATH $PATH $LDC_PATH") &&
+                            !line.canFind("LDC2_PATH=") &&
+                            !line.canFind("export PATH=$PATH:$LDC2_PATH") &&
+                            !line.canFind("set -gx PATH $PATH $LDC2_PATH") &&
                             !line.canFind("LDC2_PLATFORM") &&
                             !line.canFind("LDC2_VERSION")
                     ).array;
