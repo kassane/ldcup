@@ -19,7 +19,15 @@ void main(string[] args) @safe
         else if (arg.startsWith("--install-dir=")) parsed.installDir = arg.split("=")[1];
         else if (arg.startsWith("ldc2-") || arg.startsWith("opend-")) parsed.compiler = arg.replace("v", "");
         else if (arg.canFind("redub")) parsed.compiler = arg;
-        else if (arg == "--") parsed.compilerArgs = args[args.countUntil(arg) + 1 .. $];
+        else if (arg.endsWith("--"))
+		{
+			auto flagIndex = countUntil(args[1 .. $], "--");
+			if (flagIndex != -1)
+			{
+				parsed.compilerArgs = args[(flagIndex + 1) + 1 .. $];
+				break;
+			}
+		}
         else if (parsed.command.empty) parsed.command = arg;
         else throw new Exception("Unknown flag: %s".format(arg));
     }
