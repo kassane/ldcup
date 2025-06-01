@@ -9,6 +9,7 @@
 	],
 	"dflags": [
 		"-preview=dip1000",
+		"-preview=in",
 		"-preview=systemVariables"
 	],
 	"buildTypes": {

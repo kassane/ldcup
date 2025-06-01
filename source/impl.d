@@ -143,7 +143,6 @@ public:
 
     void installRedub() @safe
     {
-        enforce(!compilerPath.empty || exists(compilerPath), "No compiler installed");
         auto rootPath = environment.get("LDC_PATH", compilerPath);
         log("Installing redub to %s", rootPath);
 
@@ -208,111 +207,241 @@ public:
 
     void setEnvInstallPath() @safe
     {
-        if (currentOS == OS.windows)
+        // Set the environment variable for add compilerPath into PATH
+        version (Posix)
         {
-            auto cmd = format(`powershell -Command "$p=[Environment]::GetEnvironmentVariable('PATH','User'); if(!$p.Contains('%s')){[Environment]::SetEnvironmentVariable('PATH',$p+';%s','User')}"`, compilerPath, compilerPath);
-            enforce(executeShell(cmd).status == 0, "Failed to set PATH");
-            log("Updated PATH in Windows environment");
+            immutable string userShell = getDefaultUserShell();
+            debug writefln("\nDetected default user shell: %s", userShell);
+            immutable string homeDir = environment.get("HOME", "~");
+            bool pathSet = false;
+
+            // Check for shell configuration files
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"]; // Fallback for other shells
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string currentPathContent = readText(configPath);
+                    string ldcPathEntry = format("export LDC_PATH=%s", compilerPath);
+                    string newPathEntry = userShell.endsWith("fish")
+                        ? format("set -gx PATH $PATH $LDC_PATH\n") : format(
+                            "export PATH=$PATH:$LDC_PATH\n");
+
+                    // Remove existing entries and overwrite
+                    string[] lines = currentPathContent.splitLines();
+
+                    lines = lines.filter!(line =>
+                            !line.canFind(compilerPath) &&
+                            !line.canFind("LDC_PATH=") &&
+                            !line.canFind("export PATH=$PATH:$LDC_PATH") &&
+                            !line.canFind("set -gx PATH $PATH $LDC_PATH")).array;
+
+                    lines ~= [ldcPathEntry, newPathEntry];
+
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("PATH updated in " ~ file ~ ". Changes will apply on next shell session start or after sourcing " ~ file ~ ".");
+
+                    pathSet = true;
+                    break; // Stop once we've updated or checked one file
+                }
+            }
+
+            if (!pathSet)
+            {
+                log("No shell configuration file found. Please add the PATH manually or create one of the following files:
+				.bashrc, .zshrc, .profile, .bash_profile, .config/fish/config.fish.");
+                writefln("Manual command:\nexport PATH=%s:$PATH", compilerPath);
+            }
         }
-        else
+        else version (Windows)
         {
-            auto shell = getDefaultUserShell;
-            auto configFile = getShellConfigFile(shell);
-            if (configFile.empty)
-                return log("No shell config found. Manually add: export PATH=%s:$PATH", compilerPath);
-
-            auto content = exists(configFile) ? readText(configFile).splitLines : [
-            ];
-            auto pathEntry = shell.endsWith("fish") ? format("set -gx PATH $PATH %s", compilerPath) : format(
-                "export PATH=$PATH:%s", compilerPath);
-            auto ldcPathEntry = format("export LDC_PATH=%s", compilerPath);
-
-            content = content.filter!(line => !line.canFind("LDC_PATH=") && !line.canFind(format("PATH $PATH %s", compilerPath)))
-                .array ~ [ldcPathEntry, pathEntry];
-            writeConfigFile(configFile, content);
-            log("Updated PATH in %s", configFile.baseName);
-        }
-    }
-
-    void removePathFromShellConfig() @safe
-    {
-        if (currentOS == OS.windows)
-        {
-            auto cmd = format(`powershell -Command "[Environment]::SetEnvironmentVariable('PATH',([Environment]::GetEnvironmentVariable('PATH','User')-split';'|?{$_-ne'%s'})-join';','User')"`, compilerPath);
-            enforce(executeShell(cmd).status == 0, "Failed to remove PATH");
-            log("Removed PATH from Windows environment");
-        }
-        else
-        {
-            auto shell = getDefaultUserShell;
-            auto configFile = getShellConfigFile(shell);
-            if (!exists(configFile))
-                return;
-
-            auto content = readText(configFile).splitLines
-                .filter!(line => !line.canFind("LDC_PATH=") && !line.canFind("LDC2_PLATFORM") && !line.canFind(
-                        "LDC2_VERSION") && !line.canFind(compilerPath)).array;
-            writeConfigFile(configFile, content);
-            log("Removed PATH and env vars from %s", configFile.baseName);
-        }
-    }
-
-    void setPersistentEnv() @safe
-    {
-        if (currentOS == OS.windows)
-        {
-            auto cmds = [
-                format(`powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_PLATFORM','%s-%s','User')"`, currentOS, currentArch),
-                format(`powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_VERSION','%s','User')"`, compilerVersion)
-            ];
-            foreach (cmd; cmds)
-                enforce(executeShell(cmd).status == 0, "Failed to set env var");
-            log("Set env vars in Windows registry");
-        }
-        else
-        {
-            auto shell = getDefaultUserShell;
-            auto configFile = getShellConfigFile(shell);
-            if (configFile.empty)
-                return;
-
-            auto content = exists(configFile) ? readText(configFile).splitLines : [
-            ];
-            auto platformVar = shell.endsWith("fish") ? format("set -gx LDC2_PLATFORM %s-%s", currentOS, currentArch)
-                : format("export LDC2_PLATFORM=%s-%s", currentOS, currentArch);
-            auto versionVar = shell.endsWith("fish") ? format("set -gx LDC2_VERSION %s", compilerVersion) : format(
-                "export LDC2_VERSION=%s", compilerVersion);
-
-            content = content.filter!(line => !line.canFind("LDC2_PLATFORM") && !line.canFind(
-                    "LDC2_VERSION")).array ~ [platformVar, versionVar];
-            writeConfigFile(configFile, content);
-            log("Updated env vars in %s", configFile.baseName);
+            immutable string command = format("powershell -Command \"$currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User'); if (!$currentPath.Contains('%s')) { [Environment]::SetEnvironmentVariable('PATH', $currentPath + ';' + '%s', 'User') }\"", compilerPath, compilerPath);
+            auto result = executeShell(command);
+            enforce(result.status == 0, "Failed to set PATH: " ~ result.output);
+            log("PATH updated in user environment.");
         }
     }
 
-    void removePersistentEnv() @safe
+    private void removePathFromShellConfig() @safe
     {
-        if (currentOS == OS.windows)
+        version (Posix)
         {
-            foreach (cmd; [
-                `powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_PLATFORM',$null,'User')"`,
-                `powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_VERSION',$null,'User')"`
-            ])
-                enforce(executeShell(cmd).status == 0, "Failed to remove env var");
-            log("Removed env vars from Windows registry");
-        }
-        else
-        {
-            auto shell = getDefaultUserShell;
-            auto configFile = getShellConfigFile(shell);
-            if (!exists(configFile))
-                return;
+            immutable string userShell = getDefaultUserShell();
+            immutable string homeDir = environment.get("HOME", "~");
 
-            auto content = readText(configFile).splitLines
-                .filter!(line => !line.canFind("LDC2_PLATFORM") && !line.canFind("LDC2_VERSION"))
-                .array;
-            writeConfigFile(configFile, content);
-            log("Removed env vars from %s", configFile.baseName);
+            // Same config files as in setEnvInstallPath
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"];
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string content = readText(configPath);
+                    string[] lines = content.splitLines();
+
+                    // Remove lines containing the compiler path or LDC-related entries
+                    lines = lines.filter!(line =>
+                            !line.canFind(compilerPath) &&
+                            !line.canFind("LDC_PATH=") &&
+                            !line.canFind("export PATH=$PATH:$LDC_PATH") &&
+                            !line.canFind("set -gx PATH $PATH $LDC_PATH") &&
+                            !line.canFind("LDC2_PLATFORM") &&
+                            !line.canFind("LDC2_VERSION")
+                    ).array;
+
+                    // Write back the filtered content
+
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("Removed PATH and environment entries from " ~ file);
+                }
+            }
+        }
+        else version (Windows)
+        {
+            // Remove path from Windows user environment
+            immutable string command = format("powershell -Command \"[Environment]::SetEnvironmentVariable('PATH', ([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';' | Where-Object { $_ -ne '%s' }) -join ';', 'User')\"", compilerPath);
+            auto result = executeShell(command);
+            enforce(result.status == 0, "Failed to remove PATH: " ~ result.output);
+            log("Removed PATH from user environment.");
+        }
+    }
+
+    private void setPersistentEnv() @safe
+    {
+        version (Posix)
+        {
+            immutable string userShell = getDefaultUserShell();
+            immutable string homeDir = environment.get("HOME", "~");
+
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"];
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string content = readText(configPath);
+                    string[] lines = content.splitLines();
+
+                    string platformVar = userShell.endsWith("fish")
+
+                        ? format("set -gx LDC2_PLATFORM %s-%s", this.currentOS, this.currentArch) : format(
+                            "export LDC2_PLATFORM=%s-%s", this.currentOS, this.currentArch);
+
+                    string versionVar = userShell.endsWith("fish")
+
+                        ? format("set -gx LDC2_VERSION %s", this.compilerVersion) : format("export LDC2_VERSION=%s", this
+                                .compilerVersion);
+
+                    // Remove existing environment variables if they exist
+                    lines = lines.filter!(line =>
+                            !line.canFind("LDC2_PLATFORM") &&
+                            !line.canFind("LDC2_VERSION")
+                    ).array;
+
+                    // Append new environment variables
+                    lines ~= platformVar;
+                    lines ~= versionVar;
+
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("Updated environment variables in " ~ file);
+                    break;
+                }
+            }
+        }
+        else version (Windows)
+        {
+            immutable string platformValue = format("%s-%s", this.currentOS, this.currentArch);
+            immutable string[] commands = [
+
+                format("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', '%s', 'User')\"", platformValue),
+                format("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', '%s', 'User')\"", this
+                        .compilerVersion)
+            ];
+
+            foreach (cmd; commands)
+            {
+                auto result = executeShell(cmd);
+                enforce(result.status == 0, "Failed to set environment variable: " ~ result.output);
+            }
+            log("Set persistent environment variables in Windows registry");
+        }
+    }
+
+    private void removePersistentEnv() @safe
+    {
+        version (Posix)
+        {
+            immutable string userShell = getDefaultUserShell();
+            immutable string homeDir = environment.get("HOME", "~");
+
+            string[] configFiles;
+            if (userShell.endsWith("zsh"))
+                configFiles = [".zshrc"];
+            else if (userShell.endsWith("bash"))
+                configFiles = [".bashrc", ".bash_profile"];
+            else if (userShell.endsWith("fish"))
+                configFiles = [".config/fish/config.fish"];
+            else
+                configFiles = [".profile"];
+
+            foreach (file; configFiles)
+            {
+                immutable string configPath = buildPath(homeDir, file);
+                if (exists(configPath))
+                {
+                    string content = readText(configPath);
+                    string[] lines = content.splitLines()
+                        .filter!(line => !line.canFind("LDC2_PLATFORM") && !line.canFind(
+                                "LDC2_VERSION"))
+                        .array;
+                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    log("Removed environment variables from " ~ file);
+                    break;
+                }
+            }
+        }
+        else version (Windows)
+        {
+            immutable string[] commands = [
+                "powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', $null, 'User')\"",
+                "powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', $null, 'User')\""
+            ];
+
+            foreach (cmd; commands)
+            {
+                auto result = executeShell(cmd);
+                enforce(result.status == 0, "Failed to remove environment variable: " ~ result
+                        .output);
+            }
+            log("Removed persistent environment variables from Windows registry");
         }
     }
 
@@ -320,12 +449,7 @@ public:
     {
         try
         {
-            if (currentOS == OS.windows)
-                return "";
-            version (linux)
-            {
-            }
-            else version (FreeBSD)
+            if (currentOS == OS.freebsd || currentOS == OS.linux || currentOS == OS.alpine)
             {
                 auto result = execute([
                     "getent", "passwd", environment.get("USER", "root")
@@ -337,7 +461,7 @@ public:
                         return parts[6].strip;
                 }
             }
-            else version (OSX)
+            else if (currentOS == OS.osx)
             {
                 auto result = execute([
                     "dscl", ".", "-read", "/Users/" ~ environment["USER"],
@@ -355,27 +479,6 @@ public:
         {
             throw new Exception("Error getting user shell: " ~ e.msg);
         }
-    }
-
-    string getShellConfigFile(string shell) @safe
-    {
-        auto home = environment.get("HOME", "~");
-        string[] configs = shell.endsWith("zsh") ? [".zshrc"] : shell.endsWith("bash") ? [
-            ".bashrc", ".bash_profile"
-        ] : shell.endsWith("fish") ? [".config/fish/config.fish"] : [".profile"];
-        foreach (file; configs)
-        {
-            auto path = buildPath(home, file);
-            if (exists(path))
-                return path;
-        }
-        return "";
-    }
-
-    void writeConfigFile(string path, string[] lines) @safe
-    {
-        mkdirRecurse(path.dirName);
-        std.file.write(path, lines.join("\n") ~ "\n");
     }
 
     string resolveVersion(string compilerSpec) @trusted
@@ -594,7 +697,7 @@ string findProgram(string programName) @safe
     foreach (path; environment.get("PATH").split(pathSeparator))
     {
         auto fullPath = buildPath(path, programName);
-        version(Windows)
+        version (Windows)
             fullPath ~= ".exe";
         if (exists(fullPath) && isFile(fullPath))
             return fullPath;
