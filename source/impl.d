@@ -153,7 +153,7 @@ public:
             enforce(0, "Redub not supported on Android");
         else if (currentOS == OS.windows)
             redubFile = format("redub-%s-latest-%s.exe", currentOS, currentArch);
-        else if (currentOS == OS.linux)
+        else if (currentOS == OS.linux || currentOS == OS.alpine)
         {
             version (AArch64)
                 redubFile = "redub-ubuntu-24.04-arm-arm64";
