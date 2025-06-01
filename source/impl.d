@@ -440,38 +440,54 @@ public:
         throw new Exception("Unknown compiler: %s".format(compilerSpec));
     }
 
-    void download(string url, string fileName) @trusted
+    private void download(ref string url, string fileName) @trusted
     {
-        log("Downloading from %s", url);
-        auto http = HTTP(url);
-        http.method = HTTP.Method.get;
+        log("Downloading from URL: " ~ url);
         auto buf = appender!(ubyte[])();
         size_t contentLength;
 
+        auto http = HTTP(url); // unsafe/@system (need libcurl)
+        http.method = HTTP.Method.get;
         http.onReceiveHeader((in k, in v) {
             if (k == "content-length")
-                contentLength = v.to!size_t;
+                contentLength = to!size_t(v);
         });
+
+        // Progress bar
+        int barWidth = 50;
         http.onReceive((data) {
             buf.put(data);
             if (contentLength > 0)
             {
-                auto progress = buf.data.length.to!float / contentLength;
-                auto pos = (50 * progress).to!int;
-                write("\r[", "=".repeat(pos), ">", " ".repeat(50 - pos), "] ", (progress * 100).to!int, "%");
-                stdout.flush;
+                float progress = cast(float) buf.data.length / contentLength;
+                int pos = cast(int)(barWidth * progress);
+
+                write("\r[");
+                for (int i = 0; i < barWidth; ++i)
+                {
+                    if (i < pos)
+                        write("=");
+                    else if (i == pos)
+                        write(">");
+                    else
+                        write(" ");
+                }
+                writef("] %d%%", cast(int)(progress * 100));
+                stdout.flush();
             }
             return data.length;
         });
 
-        http.perform;
-        enforce(http.statusLine.code / 100 == 2 || http.statusLine.code == 302, "HTTP request failed with status %s"
-                .format(http.statusLine.code));
+        http.dataTimeout = dur!"msecs"(0);
+        http.perform();
+        immutable sc = http.statusLine().code;
+        enforce(sc / 100 == 2 || sc == 302,
+            format("HTTP request returned status code %s", sc));
         log("\nDownload complete");
 
         auto file = File(fileName, "wb");
-        scope (exit)
-            file.close;
+        scope (success)
+            file.close();
         file.rawWrite(buf.data);
     }
 
@@ -494,7 +510,7 @@ public:
         log("Extracted compiler to %s", targetPath);
     }
 
-    void extractTarXZ(string tarFile, string destination) @safe
+    void extractTarXZ(string tarFile, ref string destination) @safe
     {
         log("Extracting TarXZ: %s", tarFile);
         if (exists(destination))
@@ -506,7 +522,7 @@ public:
         enforce(pid.wait == 0, "TarXZ extraction failed");
     }
 
-    void extract7z(string sevenZipFile, string destination) @safe
+    void extract7z(string sevenZipFile, ref string destination) @safe
     {
         log("Extracting 7z: %s", sevenZipFile);
         if (exists(destination))
@@ -518,7 +534,7 @@ public:
         enforce(pid.wait == 0, "7z extraction failed");
     }
 
-    void uninstallCompiler(string compilerName) @safe
+    void uninstallCompiler(ref string compilerName) @safe
     {
         log("Uninstalling %s", compilerName);
         auto compilerPath = buildPath(root, compilerName);
