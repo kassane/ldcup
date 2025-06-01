@@ -158,7 +158,7 @@ public:
             version (AArch64)
                 redubFile = "redub-ubuntu-24.04-arm-arm64";
             else
-                redubFile = format("redub-%s-%s", currentOS == OS.alpine ? OS.alpine
+                redubFile = format("redub-%s-%s", (currentOS == OS.alpine) ? OS.alpine
                         : "ubuntu-latest", currentArch);
         }
         else if (currentOS == OS.osx)
