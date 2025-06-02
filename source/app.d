@@ -53,13 +53,14 @@ void main(string[] args) @safe
     enforce(!parsed.command.empty, "No command specified");
 
     auto installer = new CompilerManager(parsed.installDir, parsed.platform);
-    if (parsed.verbose) installer.verbose = true;
+    installer.verbose = parsed.verbose;
 
-    final switch (parsed.command)
+    switch (parsed.command)
     {
         case "install": installer.installCompiler(parsed.compiler); break;
         case "uninstall": installer.uninstallCompiler(parsed.compiler); break;
         case "list": parsed.remote ? installer.listLDCVersions : writeln(installer.listInstalledCompilers); break;
         case "run": installer.runCompiler(parsed.compiler, parsed.compilerArgs); break;
+        default: throw new Exception("Unknown command: %s".format(parsed.command));
     }
 }

@@ -54,8 +54,8 @@ $ ldcup run -- --version # run ldc2 with --version flag
 
 ## Custom path directory
 $ ldcup list --install-dir=custom-path # list installed compilers in custom path directory
-# or set DC_PATH environment variable
-$ DC_PATH=customPath ldcup list # list installed compilers in custom path directory
+# or set LDC2_ROOTPATH environment variable
+$ LDC2_ROOTPATH=customPath ldcup list # list installed compilers in custom path directory
 ```
 
 ### Helper
