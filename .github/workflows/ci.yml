@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dlang-community/setup-dlang@v2
         with:
           compiler: ldc-latest
@@ -70,7 +70,7 @@ jobs:
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Run FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
@@ -110,7 +110,7 @@ jobs:
       run:
         shell: sh
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Prepare
         run: |
