@@ -40,7 +40,7 @@ jobs:
           dub -b release -- install -v
           dub -b release -- install ldc2-master -v
           dub -b release -- list -v
-          dub -b release -- uninstall ldc2-1.40.1 -v
+          dub -b release -- uninstall ldc2-1.41.0 -v
           dub -b release -- list -v
           dub -b release -- run -v -- --version
       - name: Compress artifacts (Windows)
@@ -82,7 +82,7 @@ jobs:
             dub -b release -- install -v
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
-            dub -b release -- uninstall ldc2-1.40.1 -v
+            dub -b release -- uninstall ldc2-1.41.0 -v
             dub -b release -- list -v
             dub -b release -- run -v -- --version
             tar -cJf bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz -C bin .
