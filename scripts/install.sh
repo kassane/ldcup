@@ -24,14 +24,14 @@ case "$OS" in
             LDCUP_FILENAME="ldcup-alpine-$ARCHITECTURE.tar.xz"
         else
             if [ "$ARCHITECTURE" = "arm64" ]; then
-                LDCUP_FILENAME="ldcup-ubuntu-24.04-arm-$ARCHITECTURE.tar.xz"
+                LDCUP_FILENAME="ldcup-ubuntu-22.04-arm-$ARCHITECTURE.tar.xz"
             else
-                LDCUP_FILENAME="ldcup-ubuntu-latest-$ARCHITECTURE.tar.xz"
+                LDCUP_FILENAME="ldcup-ubuntu-22.04-$ARCHITECTURE.tar.xz"
             fi
         fi
         ;;
     "FreeBSD")
-        LDCUP_FILENAME="ldcup-freebsd14.2-$ARCHITECTURE.tar.xz"
+        LDCUP_FILENAME="ldcup-freebsd14.3-$ARCHITECTURE.tar.xz"
         ;;
     *)
         exit 1

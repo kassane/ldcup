@@ -17,14 +17,16 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             arch: amd64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-22.04-arm
             arch: arm64
           - os: macos-latest
             arch: arm64
           - os: windows-latest
             arch: amd64
+          # - os: windows-11-arm
+          #   arch: arm64
       fail-fast: false
     runs-on: ${{matrix.os}}
     steps:
@@ -32,17 +34,21 @@ jobs:
       - uses: dlang-community/setup-dlang@v2
         with:
           compiler: ldc-latest
+      - name: Set DUB_ARCH for windows-11-arm
+        if: matrix.os == 'windows-11-arm'
+        shell: bash
+        run: echo "DUB_ARCH=--arch=arm64-windows-msvc" >> $GITHUB_ENV
       - name: Build
         run: |
-          dub -b release
+          dub -b release ${{ env.DUB_ARCH }}
       - name: Tests
         run: |
-          dub -b release -- install -v
-          dub -b release -- install ldc2-master -v
-          dub -b release -- list -v
-          dub -b release -- uninstall ldc2-1.41.0 -v
-          dub -b release -- list -v
-          dub -b release -- run -v -- --version
+          dub -b release ${{ env.DUB_ARCH }} -- install -v
+          dub -b release ${{ env.DUB_ARCH }} -- install ldc2-master -v
+          dub -b release ${{ env.DUB_ARCH }} -- list -v
+          dub -b release ${{ env.DUB_ARCH }} -- uninstall ldc2-1.41.0 -v
+          dub -b release ${{ env.DUB_ARCH }} -- list -v
+          dub -b release ${{ env.DUB_ARCH }} -- run -v -- --version
       - name: Compress artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -76,7 +82,7 @@ jobs:
         with:
           usesh: true
           prepare: |
-            pkg install -y dub ldc
+            pkg install -y curl dub ldc
           run: |
             dub -b release
             dub -b release -- install -v

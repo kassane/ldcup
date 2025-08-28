@@ -1,7 +1,7 @@
 ldcup
 =====
 
-[![Static Badge](https://img.shields.io/badge/v2.110.0%20(stable)-f8240e?logo=d&logoColor=f8240e&label=runtime)](https://dlang.org/download.html)
+[![Static Badge](https://img.shields.io/badge/v2.111.0%20(stable)-f8240e?logo=d&logoColor=f8240e&label=runtime)](https://dlang.org/download.html)
 ![Latest release](https://img.shields.io/github/v/release/kassane/ldcup?include_prereleases&label=latest)
 [![Artifacts](https://github.com/kassane/ldcup/actions/workflows/ci.yml/badge.svg)](https://github.com/kassane/ldcup/actions/workflows/ci.yml)
 

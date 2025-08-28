@@ -62,7 +62,8 @@ public:
 
     this(string installRoot, string platform) @safe
     {
-        root = installRoot.empty ? environment.get("LDC2_ROOTPATH", defaultInstallRoot) : installRoot;
+        root = installRoot.empty ? environment.get("LDC2_ROOTPATH", defaultInstallRoot)
+            : installRoot;
         if (!exists(root))
             mkdirRecurse(root);
         environment["LDC2_ROOTPATH"] = root;
@@ -422,7 +423,7 @@ public:
                         .filter!(line => !line.canFind("LDC2_PLATFORM") && !line.canFind(
                                 "LDC2_VERSION"))
                         .array;
-                    std.file.write(configPath, lines.join("\n") ~ "\n");
+                    std.file.write(configPath, lines.join("\n"));
                     log("Removed environment variables from " ~ file);
                     break;
                 }
