@@ -25,8 +25,8 @@ jobs:
             arch: arm64
           - os: windows-latest
             arch: amd64
-          # - os: windows-11-arm
-          #   arch: arm64
+          - os: windows-11-arm
+            arch: arm64
       fail-fast: false
     runs-on: ${{matrix.os}}
     steps:
@@ -34,10 +34,17 @@ jobs:
       - uses: dlang-community/setup-dlang@v2
         with:
           compiler: ldc-latest
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.os == 'windows-11-arm'
+        with:
+          arch: amd64_${{ matrix.arch }} 
       - name: Set DUB_ARCH for windows-11-arm
         if: matrix.os == 'windows-11-arm'
         shell: bash
-        run: echo "DUB_ARCH=--arch=arm64-windows-msvc" >> $GITHUB_ENV
+        run: |
+          echo "DUB_ARCH=--arch=arm64-windows-msvc" >> $GITHUB_ENV
+          echo "CC=cl.exe" >> $GITHUB_ENV
+          echo "CXX=cl.exe" >> $GITHUB_ENV
       - name: Build
         run: |
           dub -b release ${{ env.DUB_ARCH }}
