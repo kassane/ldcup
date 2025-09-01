@@ -133,7 +133,6 @@ jobs:
       - name: "Build Flags environment"
         run: |
             echo "LDFLAGS=-static" >> $GITHUB_ENV
-            echo "DFLAGS=\"$DFLAGS -L$LDFLAGS\"" >> $GITHUB_ENV
       - name: Build
         run: |
             dub -b release
