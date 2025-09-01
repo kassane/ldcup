@@ -130,14 +130,16 @@ jobs:
         run: |
             apk update
             apk add --no-cache ldc dub clang xz
+      - name: "Build Flags environment"
+        run: |
+            echo "LDFLAGS=-static" >> $GITHUB_ENV
+            echo "DFLAGS=\"$DFLAGS -L$LDFLAGS\"" >> $GITHUB_ENV
       - name: Build
         run: |
             dub -b release
             touch $HOME/.profile
       - name: Tests
         run: |
-            export LDFLAGS=-static
-            export DFLAGS="$DFLAGS -L$LDFLAGS"
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
             source $HOME/.profile
