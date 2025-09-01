@@ -128,7 +128,7 @@ jobs:
       - name: Prepare
         run: |
             apk update
-            apk add --no-cache ldc dub clang xz
+            apk add --no-cache git ldc dub clang xz
       - name: "Build Flags environment"
         run: |
             echo "LDFLAGS=-static" >> $GITHUB_ENV

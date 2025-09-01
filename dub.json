@@ -8,7 +8,10 @@
 		"Matheus Catarino França"
 	],
 	"dependencies": {
-		"requests": "~>2.1.3"
+		"requests": {
+			"repository": "git+https://github.com/bagomot/dlang-requests.git",
+			"version": "ba31d83a1cbab585b530d475bfaca37bc6a4efed"
+		}
 	},
 	"dflags": [
 		"-preview=dip1000",
