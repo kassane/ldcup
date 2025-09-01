@@ -98,16 +98,16 @@ jobs:
             dub -b release -- uninstall ldc2-1.41.0 -v
             dub -b release -- list -v
             dub -b release -- run -v -- --version
-            tar -cJf bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz -C bin .
+            tar -cJf bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz -C bin .
       - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
-          name: ldcup-freebsd-14.2-amd64
-          path: bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz
+          name: ldcup-freebsd-14.3-amd64
+          path: bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: 'bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz'
+          files: 'bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz'
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
