@@ -1,5 +1,7 @@
 module impl;
 
+import requests;
+
 public import std;
 
 enum OS : string
@@ -502,10 +504,14 @@ public:
 
         try
         {
-            auto response = get(url);
+            auto rq = Request();
+            auto res = rq.get(url);
+            rq.sslSetVerifyPeer(false);
+            enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
+            string response = cast(string) res.responseBody.data;
             string dversion = releaseType == ReleaseType.nightly ?
                 response.split("<id>tag:github.com,2008:Grit::Commit/")[1].split(
-                    "</id>")[0][0 .. 8].to!string : response.to!string.strip;
+                    "</id>")[0][0 .. 8].to!string : response.strip;
             log("Resolved %s version: ldc2-%s", releaseType, dversion);
             return "ldc2-" ~ dversion;
         }
@@ -538,26 +544,27 @@ public:
         throw new Exception("Unknown compiler: %s".format(compilerSpec));
     }
 
-    private void download(ref string url, string fileName) @trusted
+    private void download(string url, string fileName) @trusted
     {
         log("Downloading from URL: " ~ url);
-        auto buf = appender!(ubyte[])();
-        size_t contentLength;
+        auto rq = Request();
+        rq.useStreaming = true;
+        rq.sslSetVerifyPeer(false);
+        auto res = rq.get(url);
+        enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
+        size_t contentLength = res.contentLength;
 
-        auto http = HTTP(url); // unsafe/@system (need libcurl)
-        http.method = HTTP.Method.get;
-        http.onReceiveHeader((in k, in v) {
-            if (k == "content-length")
-                contentLength = to!size_t(v);
-        });
-
-        // Progress bar
+        auto file = File(fileName, "wb");
+        size_t received = 0;
         int barWidth = 50;
-        http.onReceive((data) {
-            buf.put(data);
+
+        foreach (ubyte[] data; res.receiveAsRange())
+        {
+            file.rawWrite(data);
+            received += data.length;
             if (contentLength > 0)
             {
-                float progress = cast(float) buf.data.length / contentLength;
+                float progress = cast(float) received / contentLength;
                 int pos = cast(int)(barWidth * progress);
 
                 write("\r[");
@@ -573,20 +580,9 @@ public:
                 writef("] %d%%", cast(int)(progress * 100));
                 stdout.flush();
             }
-            return data.length;
-        });
-
-        http.dataTimeout = dur!"msecs"(0);
-        http.perform();
-        immutable sc = http.statusLine().code;
-        enforce(sc / 100 == 2 || sc == 302,
-            format("HTTP request returned status code %s", sc));
-        log("\nDownload complete");
-
-        auto file = File(fileName, "wb");
-        scope (success)
-            file.close();
-        file.rawWrite(buf.data);
+        }
+        writeln();
+        log("Download complete");
     }
 
     void downloadAndExtract(string url, string targetPath) @safe
@@ -661,8 +657,11 @@ public:
         int page = 1;
         while (true)
         {
-            auto response = get(format("%s?per_page=100&page=%s", baseURL, page++));
-            auto json = parseJSON(response).array;
+            auto rq = Request();
+            rq.sslSetVerifyPeer(false);
+            auto res = rq.get(format("%s?per_page=100&page=%s", baseURL, page++));
+            enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
+            auto json = parseJSON(cast(string) res.responseBody.data).array;
             if (json.empty)
                 break;
             results ~= json;

@@ -136,6 +136,8 @@ jobs:
             touch $HOME/.profile
       - name: Tests
         run: |
+            export LDFLAGS=-static
+            export DFLAGS="$DFLAGS -L$LDFLAGS"
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
             source $HOME/.profile
