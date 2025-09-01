@@ -8,7 +8,10 @@
 		"Matheus Catarino França"
 	],
 	"dependencies": {
-		"requests": "~>2.1.3"
+		"requests": {
+			"repository": "git+https://github.com/kinke/dlang-requests.git",
+			"version": "19f6f35ff99e795dd78385d0fd5170ebbadc058c"
+		}
 	},
 	"dflags": [
 		"-preview=dip1000",
