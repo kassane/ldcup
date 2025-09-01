@@ -35,7 +35,7 @@ jobs:
         with:
           compiler: ldc-latest
       - uses: ilammy/msvc-dev-cmd@v1
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         with:
           arch: ${{ matrix.arch }} 
       - name: Set DUB_ARCH for windows-11-arm
