@@ -35,21 +35,16 @@ jobs:
         with:
           compiler: ldc-latest
       - uses: ilammy/msvc-dev-cmd@v1
-        if: matrix.os == 'windows-11-arm'
+        if: matrix.os == 'windows-latest'
         with:
-          arch: amd64_${{ matrix.arch }} 
+          arch: ${{ matrix.arch }} 
       - name: Set DUB_ARCH for windows-11-arm
         if: matrix.os == 'windows-11-arm'
         shell: bash
         run: |
           echo "DUB_ARCH=--arch=arm64-windows-msvc" >> $GITHUB_ENV
           echo "CC=cl.exe" >> $GITHUB_ENV
-          echo "CXX=cl.exe" >> $GITHUB_ENV
-      - name: Install CA certificates (Windows/amd64)
-        if: matrix.os == 'windows-latest'
-        run: |
-          certutil -generateSSTFromWU roots.sst
-          certutil -addstore -f ROOT roots.sst      
+          echo "CXX=cl.exe" >> $GITHUB_ENV      
       - name: Build
         run: |
           dub -b release ${{ env.DUB_ARCH }}
