@@ -49,7 +49,6 @@ jobs:
         run: |
           dub -b release ${{ env.DUB_ARCH }}
       - name: Tests
-        if: matrix.os != 'windows-11-arm'
         run: |
           dub -b release ${{ env.DUB_ARCH }} -- install -v
           dub -b release ${{ env.DUB_ARCH }} -- install ldc2-master -v
