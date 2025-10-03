@@ -147,27 +147,21 @@ public:
         auto rootPath = environment.get("LDC2_PATH", compilerPath);
         log("Installing redub to %s", rootPath);
 
+        version (AArch64) currentArch = Arch.arm64;
+
         string redubFile;
         if (currentOS == OS.freebsd)
             enforce(0, "Redub not supported on FreeBSD");
         else if (currentOS == OS.android)
             enforce(0, "Redub not supported on Android");
         else if (currentOS == OS.windows)
-            redubFile = format("redub-%s-latest-%s.exe", currentOS, currentArch);
-        else if (currentOS == OS.linux || currentOS == OS.alpine)
-        {
-            version (AArch64)
-                redubFile = "redub-ubuntu-24.04-arm-arm64";
-            else
-                redubFile = format("redub-%s-%s", (currentOS == OS.alpine) ? OS.alpine
-                        : "ubuntu-latest", currentArch);
-        }
-        else if (currentOS == OS.osx)
-            redubFile = format("redub-%s-latest-%s", currentOS, currentArch);
+            redubFile = format("redub-latest-%s-%s.exe", currentOS, currentArch);
+        else if (currentOS == OS.osx || currentOS == OS.linux || currentOS == OS.alpine)
+            redubFile = format("redub-latest-%s-%s", currentOS, currentArch);
         else
             enforce(0, "Unsupported OS");
 
-        auto redubUrl = "https://github.com/MrcSnm/redub/releases/latest/download/" ~ redubFile;
+        auto redubUrl = "https://github.com/MrcSnm/redub/releases/download/nightly/" ~ redubFile;
         auto redubExe = buildPath(rootPath, (currentOS == OS.windows) ? "redub.exe" : "redub");
 
         if (!exists(redubExe))
