@@ -8,7 +8,7 @@
 		"Matheus Catarino França"
 	],
 	"dependencies": {
-		"requests": "~>2.1.3"
+		"requests": "~>2.2.0"
 	},
 	"dflags": [
 		"-preview=dip1000",
