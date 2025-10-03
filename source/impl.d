@@ -506,11 +506,11 @@ public:
         try
         {
             auto rq = Request();
-            auto res = rq.get(url);
             version (Windows)
                 rq.sslSetCaCert(environment.get("CURL_CA_BUNDLE"));
             else
                 rq.sslSetVerifyPeer(false);
+            auto res = rq.get(url);
             enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
             string response = cast(string) res.responseBody.data;
             string dversion = releaseType == ReleaseType.nightly ?
