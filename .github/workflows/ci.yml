@@ -38,6 +38,12 @@ jobs:
         if: runner.os == 'Windows'
         with:
           arch: ${{ matrix.arch }} 
+      - name: Set CURL_CA_BUNDLE for Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://curl.se/ca/cacert.pem -OutFile curl-ca-bundle.crt
+          echo "CURL_CA_BUNDLE=$($PWD.Path)\curl-ca-bundle.crt" >> $env:GITHUB_ENV
       - name: Set DUB_ARCH for windows-11-arm
         if: matrix.os == 'windows-11-arm'
         shell: bash
@@ -143,7 +149,6 @@ jobs:
             source $HOME/.profile
             dub -b release -- install redub -v
             dub -b release -- run -v -- --version
-            redub --version
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
