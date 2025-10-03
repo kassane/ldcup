@@ -17,6 +17,7 @@ bin/
 
 # DUB
 .dub
+dub.*.json
 docs.json
 __dummy.html
 docs/

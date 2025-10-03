@@ -35,21 +35,26 @@ jobs:
         with:
           compiler: ldc-latest
       - uses: ilammy/msvc-dev-cmd@v1
-        if: matrix.os == 'windows-11-arm'
+        if: runner.os == 'Windows'
         with:
-          arch: amd64_${{ matrix.arch }} 
+          arch: ${{ matrix.arch }} 
+      - name: Set CURL_CA_BUNDLE for Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://curl.se/ca/cacert.pem -OutFile curl-ca-bundle.crt
+          echo "CURL_CA_BUNDLE=$($PWD.Path)\curl-ca-bundle.crt" >> $env:GITHUB_ENV
       - name: Set DUB_ARCH for windows-11-arm
         if: matrix.os == 'windows-11-arm'
         shell: bash
         run: |
           echo "DUB_ARCH=--arch=arm64-windows-msvc" >> $GITHUB_ENV
           echo "CC=cl.exe" >> $GITHUB_ENV
-          echo "CXX=cl.exe" >> $GITHUB_ENV
+          echo "CXX=cl.exe" >> $GITHUB_ENV      
       - name: Build
         run: |
           dub -b release ${{ env.DUB_ARCH }}
       - name: Tests
-        if: matrix.os != 'windows-11-arm'
         run: |
           dub -b release ${{ env.DUB_ARCH }} -- install -v
           dub -b release ${{ env.DUB_ARCH }} -- install ldc2-master -v
@@ -99,16 +104,16 @@ jobs:
             dub -b release -- uninstall ldc2-1.41.0 -v
             dub -b release -- list -v
             dub -b release -- run -v -- --version
-            tar -cJf bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz -C bin .
+            tar -cJf bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz -C bin .
       - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
-          name: ldcup-freebsd-14.2-amd64
-          path: bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz
+          name: ldcup-freebsd-14.3-amd64
+          path: bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: 'bin/ldcup-freebsd14.2-${{ matrix.arch }}.tar.xz'
+          files: 'bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz'
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -130,6 +135,9 @@ jobs:
         run: |
             apk update
             apk add --no-cache ldc dub clang xz
+      - name: "Build Flags environment"
+        run: |
+            echo "LDFLAGS=-static" >> $GITHUB_ENV
       - name: Build
         run: |
             dub -b release
@@ -141,7 +149,6 @@ jobs:
             source $HOME/.profile
             dub -b release -- install redub -v
             dub -b release -- run -v -- --version
-            redub --version
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
