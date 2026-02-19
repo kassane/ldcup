@@ -38,7 +38,7 @@ case "$OS" in
     Darwin)
         if [ "$ARCHITECTURE" = "arm64" ]; then
             LDCUP_FILENAME="ldcup-macos-latest-arm64.tar.xz"
-            LDCUP_SHA256="8e6846f90f21c9e87acedef4c990fc95222ee8d00dff6989e3947cba2cdbd465"
+            LDCUP_SHA256="f2117ea867ec08fdbb0a155d475de0cb3bed7ae0a843459f094f91ce4257548c"
         else
             printf "Error: macOS on Intel (x86_64) is not supported.\n" >&2
             printf "Only Apple Silicon (arm64) builds are available.\n" >&2
@@ -49,23 +49,23 @@ case "$OS" in
         if [ -f /etc/alpine-release ] || command -v apk >/dev/null 2>&1; then
             if [ "$ARCHITECTURE" = "amd64" ]; then
                 LDCUP_FILENAME="ldcup-alpine-amd64.tar.xz"
-                LDCUP_SHA256="bea85ee81c26831670b89fba2006c2a1f7a150ab4a554af6715871254abb0172"
+                LDCUP_SHA256="5e35410fd492251918c1808339dd59d7c2637f052e050282d4375972cf1bfe4c"
             else
                 printf "Error: Alpine Linux on arm64 is not supported.\n" >&2
                 exit 1
             fi
         elif [ "$ARCHITECTURE" = "arm64" ]; then
             LDCUP_FILENAME="ldcup-ubuntu-22.04-arm-arm64.tar.xz"
-            LDCUP_SHA256="2b5ddaa142923a9217c24367ab9255ccd28f6a1aa0dec0db47da9c0bce94255b"
+            LDCUP_SHA256="479ace661805b2c3d4f419cba36ea8212f9c74ff73f0935ceb2eba97c79cc042"
         else
             LDCUP_FILENAME="ldcup-ubuntu-22.04-amd64.tar.xz"
-            LDCUP_SHA256="59a9bc3486b5caa0663658c038300cfeda0e25b07623f34fa1e32dc583fc9032"
+            LDCUP_SHA256="3b7f03f667f7798ceb9e7c38aaf90208a14c6e0c06d1ad4a12d3889665954089"
         fi
         ;;
     FreeBSD)
         if [ "$ARCHITECTURE" = "amd64" ]; then
             LDCUP_FILENAME="ldcup-freebsd14.3-amd64.tar.xz"
-            LDCUP_SHA256="b6b46f39c3db256c85c0c20f2da4b8e6c9e2f96eec253542e09ffc8527f8bc59"
+            LDCUP_SHA256="c9253a8774c1cd1d556047c61e735eddff84ca2b8400af3672fbba458be9ad41"
         else
             printf "Error: FreeBSD on arm64 is not currently supported.\n" >&2
             exit 1

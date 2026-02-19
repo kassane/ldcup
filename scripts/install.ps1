@@ -24,8 +24,8 @@ $InstallDir  = if ($env:LDCUP_INSTALL_DIR) { $env:LDCUP_INSTALL_DIR }
 #   ldcup-windows-11-arm-arm64.zip      (ARM64)
 # ---------------------------------------------------------------------------
 $Checksums = @{
-    "ldcup-windows-latest-amd64.zip"   = "5a07c21c7e01c07c36f5384cdeb64f003c59e61734585f937225f9af2c5fe2fc"
-    "ldcup-windows-11-arm-arm64.zip"   = "d61bae40cbabdd3456342c9a5b0b0d07811ba36ccd389d9a71eeba200a2e392f"
+    "ldcup-windows-latest-amd64.zip"   = "580cb2e600eda49e43f803914e70228a36ea775c5c1aa9e8625d7364312be67b"
+    "ldcup-windows-11-arm-arm64.zip"   = "1608fb9c2e83d7609e8bc3cc323bb665cecddb51174e4fc1a9c0944b0f8da86b"
 }
 
 # ---------------------------------------------------------------------------
