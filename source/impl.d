@@ -33,6 +33,7 @@ enum ReleaseType
     nightly
 }
 
+/// Convert a string to an enum value whose base type is string.
 T fromString(T)(string s) @safe if (is(T == enum) && is(T : string))
 {
     switch (s)
@@ -45,6 +46,12 @@ T fromString(T)(string s) @safe if (is(T == enum) && is(T : string))
     }
 }
 
+/// Strip a leading "v" from a version string (e.g. "v1.39.0" → "1.39.0").
+private string stripLeadingV(string s) @safe pure
+{
+    return (s.length > 0 && s[0] == 'v') ? s[1 .. $] : s;
+}
+
 class CompilerManager
 {
 private:
@@ -55,29 +62,36 @@ private:
     OS currentOS;
     Arch currentArch;
     ReleaseType releaseType;
+
     version (Windows)
         immutable string ext = ".7z";
     else
         immutable string ext = ".tar.xz";
+
 public:
         bool verbose;
 
     this(string installRoot, string platform) @safe
     {
-        root = installRoot.empty ? environment.get("LDC2_ROOTPATH", defaultInstallRoot)
-            : installRoot;
+        // detectPlatform MUST run before defaultInstallRoot so currentOS is known.
+        detectPlatform(platform.empty ? environment.get("LDC2_PLATFORM") : platform);
+
+        root = installRoot.empty
+            ? environment.get("LDC2_ROOTPATH", defaultInstallRoot()) : installRoot;
+
         if (!exists(root))
             mkdirRecurse(root);
-        environment["LDC2_ROOTPATH"] = root;
 
-        detectPlatform(platform.empty ? environment.get("LDC2_PLATFORM") : platform);
+        environment["LDC2_ROOTPATH"] = root;
         verbose = false;
     }
 
     string defaultInstallRoot() const @safe
     {
-        return buildPath(environment.get((currentOS == OS.windows) ? "LOCALAPPDATA" : "HOME", expandTilde(
-                "~")), ".dlang");
+        string base = (currentOS == OS.windows)
+            ? environment.get("LOCALAPPDATA", expandTilde("~")) : environment.get("HOME", expandTilde(
+                    "~"));
+        return buildPath(base, ".dlang");
     }
 
     void detectPlatform(string platform) @safe
@@ -120,7 +134,7 @@ public:
         else
         {
             auto parts = platform.toLower.split("-");
-            enforce(parts.length == 2, "Invalid platform format: " ~ platform);
+            enforce(parts.length == 2, "Invalid platform format (expected OS-ARCH): " ~ platform);
             currentOS = fromString!OS(parts[0]);
             currentArch = fromString!Arch(parts[1]);
         }
@@ -136,9 +150,15 @@ public:
         auto downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
         auto targetPath = buildPath(root, resolvedCompiler);
 
-        downloadAndExtract(downloadUrl, targetPath);
-        compilerPath = buildPath(targetPath, format("%s-%s-%s-%s", compilerSpec.startsWith("opend-") ? "opend" : "ldc2",
-                compilerVersion, currentOS, currentArch), "bin");
+        downloadAndExtract(downloadUrl, targetPath, resolvedCompiler.startsWith("opend-"));
+
+        bool isOpend = compilerSpec.startsWith("opend-");
+        string prefix = isOpend ? "opend" : "ldc2";
+        compilerPath = buildPath(
+            targetPath,
+            format("%s-%s-%s-%s", prefix, compilerVersion, currentOS, currentArch),
+            "bin"
+        );
 
         setEnvInstallPath();
         setPersistentEnv();
@@ -152,17 +172,16 @@ public:
         version (AArch64)
             currentArch = Arch.arm64;
 
+        enforce(currentOS != OS.freebsd, "Redub is not supported on FreeBSD");
+        enforce(currentOS != OS.android, "Redub is not supported on Android");
+
         string redubFile;
-        if (currentOS == OS.freebsd)
-            enforce(0, "Redub not supported on FreeBSD");
-        else if (currentOS == OS.android)
-            enforce(0, "Redub not supported on Android");
-        else if (currentOS == OS.windows)
+        if (currentOS == OS.windows)
             redubFile = format("redub-latest-%s-%s.exe", currentOS, currentArch);
         else if (currentOS == OS.osx || currentOS == OS.linux || currentOS == OS.alpine)
             redubFile = format("redub-latest-%s-%s", currentOS, currentArch);
         else
-            enforce(0, "Unsupported OS");
+            throw new Exception("Unsupported OS for redub: %s".format(currentOS));
 
         auto redubUrl = "https://github.com/MrcSnm/redub/releases/download/nightly/" ~ redubFile;
         auto redubExe = buildPath(rootPath, (currentOS == OS.windows) ? "redub.exe" : "redub");
@@ -174,97 +193,87 @@ public:
                 executeShell("chmod +x " ~ redubExe);
         }
         else
-            log("Redub already installed");
+            log("Redub already installed at %s", redubExe);
     }
 
     void runCompiler(string compilerSpec, string[] args) @safe
     {
         enforce(args.length > 0, "No flags provided. Use 'run -- <flags>'");
         log("Running compiler: %s", compilerSpec);
-        compilerPath = findLDC2Path;
+        compilerPath = findLDC2Path();
         enforce(!compilerPath.empty, "No LDC2 installation found");
 
         auto cmd = [compilerPath] ~ args;
         auto result = execute(cmd);
         writeln(result.output);
-        enforce(result.status == 0, "LDC2 execution failed with status %s".format(result.status));
+        enforce(result.status == 0, "LDC2 execution failed with status %d".format(result.status));
     }
 
     string findLDC2Path() @safe
     {
-        auto installed = listInstalledCompilers().filter!(ver => ver.startsWith("ldc2-")).array;
-        enforce(!installed.empty, "No LDC2 installation found");
+        auto installed = listInstalledCompilers().filter!(v => v.startsWith("ldc2-")).array;
+        enforce(!installed.empty, "No LDC2 installation found in %s".format(root));
 
-        auto ldc2Dir = buildPath(root, installed[0], format("ldc2-%s-%s-%s", installed[0]["ldc2-".length .. $], currentOS, currentArch), "bin");
+        string ver = installed[0]["ldc2-".length .. $];
+        string ldc2Dir = buildPath(
+            root, installed[0],
+            format("ldc2-%s-%s-%s", ver, currentOS, currentArch),
+            "bin"
+        );
         auto ldc2Exe = buildPath(ldc2Dir, (currentOS == OS.windows) ? "ldc2.exe" : "ldc2");
         log("Checking for LDC2 at: %s", ldc2Exe);
-
         enforce(exists(ldc2Exe), "LDC2 executable not found at %s".format(ldc2Exe));
         return ldc2Exe;
     }
 
     void setEnvInstallPath() @safe
     {
-        // Set the environment variable for add compilerPath into PATH
         version (Posix)
         {
             immutable string userShell = getDefaultUserShell();
-            debug writefln("\nDetected default user shell: %s", userShell);
             immutable string homeDir = environment.get("HOME", "~");
-            bool pathSet = false;
 
-            // Check for shell configuration files
-            string[] configFiles;
-            if (userShell.endsWith("zsh"))
-                configFiles = [".zshrc"];
-            else if (userShell.endsWith("bash"))
-                configFiles = [".bashrc", ".bash_profile"];
-            else if (userShell.endsWith("fish"))
-                configFiles = [".config/fish/config.fish"];
-            else
-                configFiles = [".profile"]; // Fallback for other shells
+            auto configFiles = shellConfigFiles(userShell, homeDir);
+            bool pathSet = false;
 
             foreach (file; configFiles)
             {
-                immutable string configPath = buildPath(homeDir, file);
-                if (exists(configPath))
-                {
-                    string currentPathContent = readText(configPath);
-                    string ldcPathEntry = format("export LDC2_PATH=%s", compilerPath);
-                    string newPathEntry = userShell.endsWith("fish")
-                        ? format("set -gx PATH $PATH $LDC2_PATH\n") : format(
-                            "export PATH=$PATH:$LDC2_PATH\n");
+                if (!exists(file))
+                    continue;
 
-                    // Remove existing entries and overwrite
-                    string[] lines = currentPathContent.splitLines();
+                string content = readText(file);
+                string[] lines = content.splitLines()
+                    .filter!(l =>
+                            !l.canFind("LDC2_PATH=") &&
+                            !l.canFind("export PATH=$PATH:$LDC2_PATH") &&
+                            !l.canFind("set -gx PATH $PATH $LDC2_PATH"))
+                    .array;
 
-                    lines = lines.filter!(line =>
-                            !line.canFind(compilerPath) &&
-                            !line.canFind("LDC2_PATH=") &&
-                            !line.canFind("export PATH=$PATH:$LDC2_PATH") &&
-                            !line.canFind("set -gx PATH $PATH $LDC2_PATH")).array;
+                bool isFish = userShell.endsWith("fish");
+                lines ~= format("export LDC2_PATH=%s", compilerPath);
+                lines ~= isFish
+                    ? "set -gx PATH $PATH $LDC2_PATH" : "export PATH=$PATH:$LDC2_PATH";
 
-                    lines ~= [ldcPathEntry, newPathEntry];
-
-                    std.file.write(configPath, lines.join("\n") ~ "\n");
-                    log("PATH updated in " ~ file ~ ". Changes will apply on next shell session start or after sourcing " ~ file ~ ".");
-
-                    pathSet = true;
-                    break; // Stop once we've updated or checked one file
-                }
+                std.file.write(file, lines.join("\n") ~ "\n");
+                log("PATH updated in %s", file.baseName);
+                pathSet = true;
+                break;
             }
 
             if (!pathSet)
             {
-                log("No shell configuration file found. Please add the PATH manually or create one of the following files:
-				.bashrc, .zshrc, .profile, .bash_profile, .config/fish/config.fish.");
+                log("No shell configuration file found; please add PATH manually.");
                 writefln("Manual command:\nexport PATH=%s:$PATH", compilerPath);
             }
         }
         else version (Windows)
         {
-            immutable string command = format("powershell -Command \"$currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User'); if (!$currentPath.Contains('%s')) { [Environment]::SetEnvironmentVariable('PATH', $currentPath + ';' + '%s', 'User') }\"", compilerPath, compilerPath);
-            auto result = executeShell(command);
+            immutable string cmd = format(
+                `powershell -Command "$p = [Environment]::GetEnvironmentVariable('PATH','User'); ` ~
+                    `if (!$p.Contains('%s')) { [Environment]::SetEnvironmentVariable('PATH', $p + ';' + '%s', 'User') }"`,
+                compilerPath, compilerPath
+            );
+            auto result = executeShell(cmd);
             enforce(result.status == 0, "Failed to set PATH: " ~ result.output);
             log("PATH updated in user environment.");
         }
@@ -277,47 +286,32 @@ public:
             immutable string userShell = getDefaultUserShell();
             immutable string homeDir = environment.get("HOME", "~");
 
-            // Same config files as in setEnvInstallPath
-            string[] configFiles;
-            if (userShell.endsWith("zsh"))
-                configFiles = [".zshrc"];
-            else if (userShell.endsWith("bash"))
-                configFiles = [".bashrc", ".bash_profile"];
-            else if (userShell.endsWith("fish"))
-                configFiles = [".config/fish/config.fish"];
-            else
-                configFiles = [".profile"];
-
-            foreach (file; configFiles)
+            foreach (file; shellConfigFiles(userShell, homeDir))
             {
-                immutable string configPath = buildPath(homeDir, file);
-                if (exists(configPath))
-                {
-                    string content = readText(configPath);
-                    string[] lines = content.splitLines();
-
-                    // Remove lines containing the compiler path or LDC-related entries
-                    lines = lines.filter!(line =>
-                            !line.canFind(compilerPath) &&
-                            !line.canFind("LDC2_PATH=") &&
-                            !line.canFind("export PATH=$PATH:$LDC2_PATH") &&
-                            !line.canFind("set -gx PATH $PATH $LDC2_PATH") &&
-                            !line.canFind("LDC2_PLATFORM") &&
-                            !line.canFind("LDC2_VERSION")
-                    ).array;
-
-                    // Write back the filtered content
-
-                    std.file.write(configPath, lines.join("\n") ~ "\n");
-                    log("Removed PATH and environment entries from " ~ file);
-                }
+                if (!exists(file))
+                    continue;
+                string[] lines = readText(file).splitLines()
+                    .filter!(l =>
+                            !l.canFind(compilerPath) &&
+                            !l.canFind("LDC2_PATH=") &&
+                            !l.canFind("export PATH=$PATH:$LDC2_PATH") &&
+                            !l.canFind("set -gx PATH $PATH $LDC2_PATH") &&
+                            !l.canFind("LDC2_PLATFORM") &&
+                            !l.canFind("LDC2_VERSION"))
+                    .array;
+                std.file.write(file, lines.join("\n") ~ "\n");
+                log("Removed PATH and environment entries from %s", file.baseName);
             }
         }
         else version (Windows)
         {
-            // Remove path from Windows user environment
-            immutable string command = format("powershell -Command \"[Environment]::SetEnvironmentVariable('PATH', ([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';' | Where-Object { $_ -ne '%s' }) -join ';', 'User')\"", compilerPath);
-            auto result = executeShell(command);
+            immutable string cmd = format(
+                `powershell -Command "[Environment]::SetEnvironmentVariable('PATH',` ~
+                    `([Environment]::GetEnvironmentVariable('PATH','User') -split ';' | ` ~
+                    `Where-Object { $_ -ne '%s' }) -join ';', 'User')"`,
+                compilerPath
+            );
+            auto result = executeShell(cmd);
             enforce(result.status == 0, "Failed to remove PATH: " ~ result.output);
             log("Removed PATH from user environment.");
         }
@@ -329,67 +323,41 @@ public:
         {
             immutable string userShell = getDefaultUserShell();
             immutable string homeDir = environment.get("HOME", "~");
+            bool isFish = userShell.endsWith("fish");
 
-            string[] configFiles;
-            if (userShell.endsWith("zsh"))
-                configFiles = [".zshrc"];
-            else if (userShell.endsWith("bash"))
-                configFiles = [".bashrc", ".bash_profile"];
-            else if (userShell.endsWith("fish"))
-                configFiles = [".config/fish/config.fish"];
-            else
-                configFiles = [".profile"];
-
-            foreach (file; configFiles)
+            foreach (file; shellConfigFiles(userShell, homeDir))
             {
-                immutable string configPath = buildPath(homeDir, file);
-                if (exists(configPath))
-                {
-                    string content = readText(configPath);
-                    string[] lines = content.splitLines();
+                if (!exists(file))
+                    continue;
 
-                    string platformVar = userShell.endsWith("fish")
+                string[] lines = readText(file).splitLines()
+                    .filter!(l => !l.canFind("LDC2_PLATFORM") && !l.canFind("LDC2_VERSION"))
+                    .array;
 
-                        ? format("set -gx LDC2_PLATFORM %s-%s", this.currentOS, this.currentArch) : format(
-                            "export LDC2_PLATFORM=%s-%s", this.currentOS, this.currentArch);
+                lines ~= isFish
+                    ? format("set -gx LDC2_PLATFORM %s-%s", currentOS, currentArch) : format(
+                        "export LDC2_PLATFORM=%s-%s", currentOS, currentArch);
+                lines ~= isFish
+                    ? format("set -gx LDC2_VERSION %s", compilerVersion) : format(
+                        "export LDC2_VERSION=%s", compilerVersion);
 
-                    string versionVar = userShell.endsWith("fish")
-
-                        ? format("set -gx LDC2_VERSION %s", this.compilerVersion) : format("export LDC2_VERSION=%s", this
-                                .compilerVersion);
-
-                    // Remove existing environment variables if they exist
-                    lines = lines.filter!(line =>
-                            !line.canFind("LDC2_PLATFORM") &&
-                            !line.canFind("LDC2_VERSION")
-                    ).array;
-
-                    // Append new environment variables
-                    lines ~= platformVar;
-                    lines ~= versionVar;
-
-                    std.file.write(configPath, lines.join("\n") ~ "\n");
-                    log("Updated environment variables in " ~ file);
-                    break;
-                }
+                std.file.write(file, lines.join("\n") ~ "\n");
+                log("Updated environment variables in %s", file.baseName);
+                break;
             }
         }
         else version (Windows)
         {
-            immutable string platformValue = format("%s-%s", this.currentOS, this.currentArch);
-            immutable string[] commands = [
-
-                format("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', '%s', 'User')\"", platformValue),
-                format("powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', '%s', 'User')\"", this
-                        .compilerVersion)
-            ];
-
-            foreach (cmd; commands)
+            immutable string platform = format("%s-%s", currentOS, currentArch);
+            foreach (cmd; [
+                format(`powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_PLATFORM','%s','User')"`, platform),
+                format(`powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_VERSION','%s','User')"`, compilerVersion)
+            ])
             {
                 auto result = executeShell(cmd);
                 enforce(result.status == 0, "Failed to set environment variable: " ~ result.output);
             }
-            log("Set persistent environment variables in Windows registry");
+            log("Set persistent environment variables in Windows registry.");
         }
     }
 
@@ -400,47 +368,46 @@ public:
             immutable string userShell = getDefaultUserShell();
             immutable string homeDir = environment.get("HOME", "~");
 
-            string[] configFiles;
-            if (userShell.endsWith("zsh"))
-                configFiles = [".zshrc"];
-            else if (userShell.endsWith("bash"))
-                configFiles = [".bashrc", ".bash_profile"];
-            else if (userShell.endsWith("fish"))
-                configFiles = [".config/fish/config.fish"];
-            else
-                configFiles = [".profile"];
-
-            foreach (file; configFiles)
+            foreach (file; shellConfigFiles(userShell, homeDir))
             {
-                immutable string configPath = buildPath(homeDir, file);
-                if (exists(configPath))
-                {
-                    string content = readText(configPath);
-                    string[] lines = content.splitLines()
-                        .filter!(line => !line.canFind("LDC2_PLATFORM") && !line.canFind(
-                                "LDC2_VERSION"))
-                        .array;
-                    std.file.write(configPath, lines.join("\n"));
-                    log("Removed environment variables from " ~ file);
-                    break;
-                }
+                if (!exists(file))
+                    continue;
+                string[] lines = readText(file).splitLines()
+                    .filter!(l => !l.canFind("LDC2_PLATFORM") && !l.canFind("LDC2_VERSION"))
+                    .array;
+                std.file.write(file, lines.join("\n") ~ "\n");
+                log("Removed environment variables from %s", file.baseName);
+                break;
             }
         }
         else version (Windows)
         {
-            immutable string[] commands = [
-                "powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_PLATFORM', $null, 'User')\"",
-                "powershell -Command \"[Environment]::SetEnvironmentVariable('LDC2_VERSION', $null, 'User')\""
-            ];
-
-            foreach (cmd; commands)
+            foreach (cmd; [
+                `powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_PLATFORM',$null,'User')"`,
+                `powershell -Command "[Environment]::SetEnvironmentVariable('LDC2_VERSION',$null,'User')"`
+            ])
             {
                 auto result = executeShell(cmd);
                 enforce(result.status == 0, "Failed to remove environment variable: " ~ result
                         .output);
             }
-            log("Removed persistent environment variables from Windows registry");
+            log("Removed persistent environment variables from Windows registry.");
         }
+    }
+
+    /// Returns the ordered list of shell config file full paths to check for the given shell.
+    private string[] shellConfigFiles(string userShell, string homeDir) @safe pure
+    {
+        string[] files;
+        if (userShell.endsWith("zsh"))
+            files = [".zshrc"];
+        else if (userShell.endsWith("bash"))
+            files = [".bashrc", ".bash_profile"];
+        else if (userShell.endsWith("fish"))
+            files = [".config/fish/config.fish"];
+        else
+            files = [".profile"];
+        return files.map!(f => buildPath(homeDir, f)).array;
     }
 
     string getDefaultUserShell() @safe
@@ -462,7 +429,8 @@ public:
             else if (currentOS == OS.osx)
             {
                 auto result = execute([
-                    "dscl", ".", "-read", "/Users/" ~ environment["USER"],
+                    "dscl", ".", "-read",
+                    "/Users/" ~ environment.get("USER", ""),
                     "UserShell"
                 ]);
                 if (result.status == 0)
@@ -470,7 +438,7 @@ public:
                         if (line.startsWith("UserShell:"))
                             return line["UserShell:".length .. $].strip;
             }
-            log("Could not determine shell. Using /bin/sh");
+            log("Could not determine shell; using /bin/sh.");
             return "/bin/sh";
         }
         catch (Exception e)
@@ -481,7 +449,8 @@ public:
 
     string resolveVersion(string compilerSpec) @trusted
     {
-        if (compilerSpec.canFind("opend-latest"))
+        // opend-latest is fetched from the CI tag; no HTTP resolution needed.
+        if (compilerSpec == "opend-latest")
             return compilerSpec;
 
         string url;
@@ -500,8 +469,8 @@ public:
             releaseType = ReleaseType.nightly;
             url = "https://github.com/ldc-developers/ldc/commits/master.atom";
         }
-        else
-            return compilerSpec;
+        else // Explicit version — use as-is; normalise prefix if missing.
+            return compilerSpec.startsWith("ldc2-") ? compilerSpec : "ldc2-" ~ compilerSpec;
 
         try
         {
@@ -510,12 +479,16 @@ public:
                 rq.sslSetCaCert(environment.get("CURL_CA_BUNDLE"));
             else
                 rq.sslSetVerifyPeer(false);
+
             auto res = rq.get(url);
-            enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
-            string response = cast(string) res.responseBody.data;
-            string dversion = releaseType == ReleaseType.nightly ?
-                response.split("<id>tag:github.com,2008:Grit::Commit/")[1].split(
-                    "</id>")[0][0 .. 8].to!string : response.strip;
+            enforce(res.code / 100 == 2,
+                format("HTTP %d when resolving %s version", res.code, releaseType));
+
+            string response = (cast(string) res.responseBody.data).strip;
+            string dversion = (releaseType == ReleaseType.nightly)
+                ? response.split("<id>tag:github.com,2008:Grit::Commit/")[1].split(
+                    "</id>")[0][0 .. 8] : response;
+
             log("Resolved %s version: ldc2-%s", releaseType, dversion);
             return "ldc2-" ~ dversion;
         }
@@ -527,43 +500,47 @@ public:
 
     string getCompilerDownloadUrl(string compilerSpec) @safe
     {
-        compilerVersion = compilerSpec[compilerSpec.startsWith("opend-") ? "opend-".length: "ldc2-".length .. $];
-        log("Downloading %s for version: %s", compilerSpec.startsWith("opend-") ? "OpenD-LDC2" : "LDC2", compilerVersion);
+        bool isOpend = compilerSpec.startsWith("opend-");
+        string rawVersion = compilerSpec[isOpend ? "opend-".length: "ldc2-".length .. $];
+        compilerVersion = stripLeadingV(rawVersion);
 
-        if (compilerSpec.startsWith("ldc2-"))
+        log("Downloading %s version: %s",
+            isOpend ? "OpenD" : "LDC2", compilerVersion);
+
+        if (!isOpend)
         {
-            auto baseUrl = releaseType == ReleaseType.nightly ?
-                "https://github.com/ldc-developers/ldc/releases/download/CI"
+            string baseUrl = (releaseType == ReleaseType.nightly)
+                ? "https://github.com/ldc-developers/ldc/releases/download/CI"
                 : "https://github.com/ldc-developers/ldc/releases/download/v%s".format(
                     compilerVersion);
             return format("%s/ldc2-%s-%s-%s%s", baseUrl, compilerVersion, currentOS, currentArch, ext);
         }
-        if (compilerSpec.startsWith("opend-"))
-        {
-            if (currentOS == OS.windows)
-                currentArch = Arch.x64;
-            return format("https://github.com/opendlang/opend/releases/download/CI/opend-%s-%s-%s%s",
-                compilerVersion, currentOS, currentArch, ext);
-        }
-        throw new Exception("Unknown compiler: %s".format(compilerSpec));
+
+        // opend
+        Arch opendArch = (currentOS == OS.windows) ? Arch.x64 : currentArch;
+        return format(
+            "https://github.com/opendlang/opend/releases/download/CI/opend-%s-%s-%s%s",
+            compilerVersion, currentOS, opendArch, ext
+        );
     }
 
     private void download(string url, string fileName) @trusted
     {
-        log("Downloading from URL: " ~ url);
+        log("Downloading: %s", url);
         auto rq = Request();
         rq.useStreaming = true;
         version (Windows)
             rq.sslSetCaCert(environment.get("CURL_CA_BUNDLE"));
         else
             rq.sslSetVerifyPeer(false);
+
         auto res = rq.get(url);
-        enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
+        enforce(res.code / 100 == 2, format("HTTP %d while downloading %s", res.code, url));
         size_t contentLength = res.contentLength;
 
         auto file = File(fileName, "wb");
         size_t received = 0;
-        int barWidth = 50;
+        enum barWidth = 50;
 
         foreach (ubyte[] data; res.receiveAsRange())
         {
@@ -573,90 +550,101 @@ public:
             {
                 float progress = cast(float) received / contentLength;
                 int pos = cast(int)(barWidth * progress);
-
                 write("\r[");
-                for (int i = 0; i < barWidth; ++i)
-                {
-                    if (i < pos)
-                        write("=");
-                    else if (i == pos)
-                        write(">");
-                    else
-                        write(" ");
-                }
-
+                foreach (i; 0 .. barWidth)
+                    write(i < pos ? "=" : i == pos ? ">" : " ");
                 writef("] %d%%", cast(int)(progress * 100));
                 stdout.flush();
             }
         }
         writeln();
-        log("Download complete");
+        file.close();
+        log("Download complete: %s", fileName);
     }
 
-    void downloadAndExtract(string url, string targetPath) @safe
+    /// Download and extract a compiler archive into targetPath.
+    /// isOpend controls whether the inner directory uses the "opend-" prefix.
+    void downloadAndExtract(string url, string targetPath, bool isOpend = false) @safe
     {
+        string prefix = isOpend ? "opend" : "ldc2";
+
         if (exists(targetPath))
         {
-            toolchainExtractPath = buildPath(targetPath, format("ldc2-%s-%s-%s", compilerVersion, currentOS, currentArch));
+            toolchainExtractPath = buildPath(
+                targetPath,
+                format("%s-%s-%s-%s", prefix, compilerVersion, currentOS, currentArch)
+            );
             log("Compiler already exists at %s", toolchainExtractPath);
             return;
         }
 
-        download(url, targetPath ~ ext);
+        string archive = targetPath ~ ext;
+        download(url, archive);
+
         if (ext.endsWith("7z"))
-            extract7z(targetPath ~ ext, targetPath);
+            extract7z(archive, targetPath);
         else
-            extractTarXZ(targetPath ~ ext, targetPath);
-        remove(targetPath ~ ext);
-        toolchainExtractPath = buildPath(targetPath, format("ldc2-%s-%s-%s", compilerVersion, currentOS, currentArch));
+            extractTarXZ(archive, targetPath);
+
+        remove(archive);
+        toolchainExtractPath = buildPath(
+            targetPath,
+            format("%s-%s-%s-%s", prefix, compilerVersion, currentOS, currentArch)
+        );
         log("Extracted compiler to %s", targetPath);
     }
 
-    void extractTarXZ(string tarFile, ref string destination) @safe
+    void extractTarXZ(string tarFile, string destination) @safe
     {
-        log("Extracting TarXZ: %s", tarFile);
+        log("Extracting tar.xz: %s → %s", tarFile, destination);
         if (exists(destination))
             rmdirRecurse(destination);
         mkdirRecurse(destination);
         auto pid = spawnProcess([
             findProgram("tar"), "xf", tarFile, "--directory=" ~ destination
         ]);
-        enforce(pid.wait == 0, "TarXZ extraction failed");
+        enforce(pid.wait == 0, "tar extraction failed for: " ~ tarFile);
     }
 
-    void extract7z(string sevenZipFile, ref string destination) @safe
+    void extract7z(string sevenZipFile, string destination) @safe
     {
-        log("Extracting 7z: %s", sevenZipFile);
+        log("Extracting 7z: %s → %s", sevenZipFile, destination);
         if (exists(destination))
             rmdirRecurse(destination);
         mkdirRecurse(destination);
         auto pid = spawnProcess([
             findProgram("7z"), "x", sevenZipFile, "-o" ~ destination
         ]);
-        enforce(pid.wait == 0, "7z extraction failed");
+        enforce(pid.wait == 0, "7z extraction failed for: " ~ sevenZipFile);
     }
 
-    void uninstallCompiler(ref string compilerName) @safe
+    void uninstallCompiler(string compilerName) @safe
     {
         log("Uninstalling %s", compilerName);
-        auto compilerPath = buildPath(root, compilerName);
-        enforce(exists(compilerPath), "Compiler not installed: %s".format(compilerName));
+        auto targetPath = buildPath(root, compilerName);
+        enforce(exists(targetPath), "Compiler not installed: " ~ compilerName);
 
-        this.compilerPath = buildPath(compilerPath, format("ldc2-%s-%s-%s", compilerName["ldc2-".length .. $], currentOS, currentArch), "bin");
-        removePathFromShellConfig;
-        removePersistentEnv;
-        rmdirRecurse(compilerPath);
+        bool isOpend = compilerName.startsWith("opend-");
+        string prefix = isOpend ? "opend" : "ldc2";
+        string ver = compilerName[prefix.length + 1 .. $]; // skip "ldc2-" or "opend-"
+        this.compilerPath = buildPath(
+            targetPath,
+            format("%s-%s-%s-%s", prefix, ver, currentOS, currentArch),
+            "bin"
+        );
+
+        removePathFromShellConfig();
+        removePersistentEnv();
+        rmdirRecurse(targetPath);
         log("Uninstalled %s", compilerName);
     }
 
     void listLDCVersions() @safe
     {
-        log("Listing LDC versions");
+        log("Fetching available LDC releases from GitHub…");
         auto results = getGitHubList("https://api.github.com/repos/ldc-developers/ldc/releases");
-        writeln(results.map!(r => r["tag_name"].str)
-                .array
-                .sort
-                .to!string);
+        foreach (tag; results.map!(r => r["tag_name"].str).array.sort)
+            writeln(tag);
     }
 
     JSONValue[] getGitHubList(string baseURL) @trusted
@@ -670,8 +658,11 @@ public:
                 rq.sslSetCaCert(environment.get("CURL_CA_BUNDLE"));
             else
                 rq.sslSetVerifyPeer(false);
-            auto res = rq.get(format("%s?per_page=100&page=%s", baseURL, page++));
-            enforce(res.code / 100 == 2, format("HTTP request returned status code %s", res.code));
+
+            auto res = rq.get(format("%s?per_page=100&page=%d", baseURL, page++));
+            enforce(res.code / 100 == 2,
+                format("HTTP %d when listing releases", res.code));
+
             auto json = parseJSON(cast(string) res.responseBody.data).array;
             if (json.empty)
                 break;
@@ -679,16 +670,18 @@ public:
             if (json.length < 100)
                 break;
         }
-
         return results;
     }
 
     string[] listInstalledCompilers() @trusted
     {
-        log("Listing installed compilers");
-        return dirEntries(root, SpanMode.shallow).filter!(e => e.isDir)
+        log("Listing installed compilers in %s", root);
+        return dirEntries(root, SpanMode.shallow)
+            .filter!(e => e.isDir)
             .map!(e => e.name.baseName)
-            .array;
+            .array
+            .sort
+            .release;
     }
 
     void log(Args...)(string fmt, Args args) @safe
@@ -700,13 +693,13 @@ public:
 
 string findProgram(string programName) @safe
 {
-    foreach (path; environment.get("PATH").split(pathSeparator))
+    foreach (dir; environment.get("PATH", "").split(pathSeparator))
     {
-        auto fullPath = buildPath(path, programName);
+        string fullPath = buildPath(dir, programName);
         version (Windows)
             fullPath ~= ".exe";
         if (exists(fullPath) && isFile(fullPath))
             return fullPath;
     }
-    throw new Exception("Program not found: %s".format(programName));
+    throw new Exception("Program not found in PATH: " ~ programName);
 }

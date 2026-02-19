@@ -1,98 +1,147 @@
-$ldcupBaseUrl = "https://github.com/kassane/ldcup/releases/latest/download"
-$ldcupInstallDir = Join-Path $HOME ".dlang"
-$ldcupRenamedExePath = Join-Path $ldcupInstallDir "ldcup.exe"
-$processorArch = $env:PROCESSOR_ARCHITECTURE.ToLower()
+# ldcup installer for Windows
+# Usage:
+#   irm https://github.com/kassane/ldcup/releases/latest/download/install.ps1 | iex
+#   - or -
+#   powershell -ExecutionPolicy Bypass -File install.ps1
+#
+# Override install directory:
+#   $env:LDCUP_INSTALL_DIR = "C:\tools\ldcup"; irm .../install.ps1 | iex
 
-switch ($processorArch) {
-    "amd64" {
-        $fileArch = "amd64"
-        $ldcupFileName = "ldcup-windows-latest-$fileArch.zip"
-    }
-    "arm64" {
-        $fileArch = "arm64"
-        $ldcupFileName = "ldcup-windows-11-arm-$fileArch.zip"
-        
-        # Check if running on Windows 11 or later for ARM64
-        $os = Get-CimInstance Win32_OperatingSystem
-        if ($os.BuildNumber -lt 22000) {
-            Write-Output "Error: ARM64 support requires Windows 11 or later."
-            exit 1
-        }
-    }
-    "x86" {
-        Write-Output "Error: 32-bit (x86) version is not available yet."
-        Write-Output "Build your own 32-bit version of ldcup from source."
-        exit 1
-    }
+#Requires -Version 5.1
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+$BaseUrl     = "https://github.com/kassane/ldcup/releases/latest/download"
+$InstallDir  = if ($env:LDCUP_INSTALL_DIR) { $env:LDCUP_INSTALL_DIR }
+               else { Join-Path $env:LOCALAPPDATA "ldcup" }
+
+# ---------------------------------------------------------------------------
+# Available assets:
+#   ldcup-windows-latest-amd64.zip      (x86_64)
+#   ldcup-windows-11-arm-arm64.zip      (ARM64)
+# ---------------------------------------------------------------------------
+$Checksums = @{
+    "ldcup-windows-latest-amd64.zip"   = "5a07c21c7e01c07c36f5384cdeb64f003c59e61734585f937225f9af2c5fe2fc"
+    "ldcup-windows-11-arm-arm64.zip"   = "d61bae40cbabdd3456342c9a5b0b0d07811ba36ccd389d9a71eeba200a2e392f"
+}
+
+# ---------------------------------------------------------------------------
+# Detect architecture
+# ---------------------------------------------------------------------------
+$Arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+$FileName = switch ($Arch) {
+    "X64"   { "ldcup-windows-latest-amd64.zip" }
+    "Arm64" { "ldcup-windows-11-arm-arm64.zip"  }
     default {
-        Write-Output "Error: Unsupported architecture: $processorArch"
+        Write-Error "Error: architecture '$Arch' is not supported."
         exit 1
     }
 }
 
-$ldcupZipPath = Join-Path $ldcupInstallDir $ldcupFileName
-$ldcupExePath = Join-Path $ldcupInstallDir "ldcup.exe"
-$ldcupUrl = "$ldcupBaseUrl/$ldcupFileName"
+$Url      = "$BaseUrl/$FileName"
+$Expected = $Checksums[$FileName]
 
-# Create the installation directory if it doesn't exist
-if (-not (Test-Path -Path $ldcupInstallDir -PathType Container)) {
-    Write-Output "Creating installation directory at $ldcupInstallDir..."
-    New-Item -Path $ldcupInstallDir -ItemType Directory | Out-Null
+# ---------------------------------------------------------------------------
+# Prepare install directory
+# ---------------------------------------------------------------------------
+if (-not (Test-Path $InstallDir)) {
+    Write-Host "Creating installation directory at $InstallDir ..."
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 }
 
-# Remove existing ldcup.exe if it exists
-if (Test-Path -Path $ldcupRenamedExePath) {
-    Remove-Item -Path $ldcupRenamedExePath -Force
-    Write-Output "Removed existing ldcup.exe."
+$ExistingBin = Join-Path $InstallDir "ldcup.exe"
+if (Test-Path $ExistingBin) {
+    Remove-Item $ExistingBin -Force
+    Write-Host "Removed existing ldcup.exe."
 }
 
-# Download the latest release
-Write-Output "Downloading ldcup from $ldcupUrl..."
+# ---------------------------------------------------------------------------
+# Download
+# ---------------------------------------------------------------------------
+$Archive = Join-Path $InstallDir $FileName
+Write-Host "Downloading ldcup from $Url ..."
 try {
-    Invoke-WebRequest -Uri $ldcupUrl -OutFile $ldcupZipPath -ErrorAction Stop
-    Write-Output "Download complete."
+    # Use TLS 1.2+ and a progress-friendly method
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+    $ProgressPreference = "SilentlyContinue"   # dramatically speeds up Invoke-WebRequest
+    Invoke-WebRequest -Uri $Url -OutFile $Archive -UseBasicParsing
 } catch {
-    Write-Output "Error: Failed to download ldcup. Please check your internet connection and ensure the URL is correct."
-    Write-Output "Details: $($_.Exception.Message)"
+    Write-Error "Error: download failed — $($_.Exception.Message)"
     exit 1
 }
+Write-Host "Download complete."
 
-# Unzip the downloaded file
-Write-Output "Extracting ldcup..."
-try {
-    Expand-Archive -Path $ldcupZipPath -DestinationPath $ldcupInstallDir -Force -ErrorAction Stop
-    Write-Output "Extraction complete."
-} catch {
-    Write-Output "Error: Failed to extract $ldcupFileName. Please check the file integrity."
-    Write-Output "Details: $($_.Exception.Message)"
-    Remove-Item -Path $ldcupZipPath -ErrorAction SilentlyContinue
+# ---------------------------------------------------------------------------
+# Verify SHA256 checksum
+# ---------------------------------------------------------------------------
+Write-Host "Verifying checksum ..."
+$Hash = (Get-FileHash -Path $Archive -Algorithm SHA256).Hash.ToLower()
+if ($Hash -ne $Expected) {
+    Write-Error "Error: checksum mismatch!`n  expected: $Expected`n  got:      $Hash"
+    Remove-Item $Archive -Force
     exit 1
 }
+Write-Host "Checksum OK."
 
-# Remove the downloaded zip file
-Remove-Item -Path $ldcupZipPath -ErrorAction SilentlyContinue
+# ---------------------------------------------------------------------------
+# Extract
+# ---------------------------------------------------------------------------
+Write-Host "Extracting $FileName ..."
+try {
+    Expand-Archive -Path $Archive -DestinationPath $InstallDir -Force
+} catch {
+    Write-Error "Error: extraction failed — $($_.Exception.Message)"
+    Remove-Item $Archive -Force
+    exit 1
+}
+Remove-Item $Archive -Force
+Write-Host "Extraction complete."
 
-# Check if the executable exists after extraction
-if (Test-Path -Path $ldcupExePath) {
-    Write-Output "ldcup.exe is ready."
+# ---------------------------------------------------------------------------
+# Verify binary
+# ---------------------------------------------------------------------------
+$LdcupBin = Join-Path $InstallDir "ldcup.exe"
+if (-not (Test-Path $LdcupBin)) {
+    Write-Error "Error: ldcup.exe not found at $LdcupBin after extraction."
+    exit 1
+}
+Write-Host "ldcup.exe is ready at $LdcupBin"
 
-    # Set the user environment variable
-    Write-Output "Setting LDCUP_DIR environment variable..."
-    [System.Environment]::SetEnvironmentVariable("LDCUP_DIR", $ldcupInstallDir, [System.EnvironmentVariableTarget]::User)
-    Write-Output "LDCUP_DIR has been set to $ldcupInstallDir for the current user."
-
-    # Add the ldcup directory to the user PATH if not already present
-    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
-    if ($currentPath -notlike "*$ldcupInstallDir*") {
-        $newPath = "$currentPath;$ldcupInstallDir".Trim(';')
-        [System.Environment]::SetEnvironmentVariable("Path", $newPath, [System.EnvironmentVariableTarget]::User)
-        Write-Output "Added $ldcupInstallDir to PATH for the current user."
-    } else {
-        Write-Output "$ldcupInstallDir is already in the user PATH."
-    }
+# ---------------------------------------------------------------------------
+# Add install directory to the user PATH (persistent)
+# ---------------------------------------------------------------------------
+Write-Host "Updating user PATH ..."
+$UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+if (-not $UserPath.Split(";").Contains($InstallDir)) {
+    [Environment]::SetEnvironmentVariable("PATH", "$UserPath;$InstallDir", "User")
+    Write-Host "Added $InstallDir to user PATH."
 } else {
-    Write-Output "Error: ldcup executable not found after extraction. Please verify the downloaded zip contents."
+    Write-Host "$InstallDir is already in user PATH."
+}
+
+# Also set in the current session so the bootstrap step below works immediately.
+$env:PATH = "$env:PATH;$InstallDir"
+
+# Set LDCUP_DIR for the user environment (persistent + current session).
+[Environment]::SetEnvironmentVariable("LDCUP_DIR", $InstallDir, "User")
+$env:LDCUP_DIR = $InstallDir
+Write-Host "LDCUP_DIR set to $InstallDir"
+
+# ---------------------------------------------------------------------------
+# Bootstrap: install ldc2-latest
+# ---------------------------------------------------------------------------
+Write-Host "`nBootstrapping ldc2-latest ..."
+& $LdcupBin install ldc2-latest --verbose
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Error: ldc2-latest installation failed (exit code $LASTEXITCODE)."
     exit 1
 }
 
-Write-Output "Installation complete. Please restart your terminal or log out and back in to apply changes."
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
+Write-Host "`nInstallation complete."
+Write-Host "Restart your terminal for PATH changes to take effect."

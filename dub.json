@@ -1,6 +1,6 @@
 {
 	"name": "ldcup",
-	"version": "1.1.6",
+	"version": "1.1.7",
 	"description": "Download and manage D compiler [ldc2].",
 	"license": "Apache-2.0",
 	"targetPath": "bin",
@@ -16,6 +16,9 @@
 		"-preview=rvaluerefparam",
 		"-preview=in",
 		"-preview=systemVariables"
+	],
+	"dflags-ldc": [
+		"-link-defaultlib-shared=false"
 	],
 	"buildTypes": {
 		"debug": {
