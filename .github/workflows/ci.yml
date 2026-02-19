@@ -30,8 +30,8 @@ jobs:
       fail-fast: false
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dlang-community/setup-dlang@v2
+      - uses: actions/checkout@main
+      - uses: dlang-community/setup-dlang@master
         with:
           compiler: ldc-latest
       - uses: ilammy/msvc-dev-cmd@v1
@@ -129,7 +129,7 @@ jobs:
       run:
         shell: sh
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@main
       
       - name: Prepare
         run: |
@@ -144,7 +144,6 @@ jobs:
             touch $HOME/.profile
       - name: Tests
         run: |
-            dub -b release -- install ldc2-master -v
             dub -b release -- list -v
             source $HOME/.profile
             dub -b release -- install redub -v
@@ -152,12 +151,12 @@ jobs:
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@main
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
           name: ldcup-alpine-${{ matrix.arch }}
           path: bin/ldcup-alpine-${{ matrix.arch }}.tar.xz
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@main
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: 'bin/ldcup-alpine-${{ matrix.arch }}.tar.xz'
