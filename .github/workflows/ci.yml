@@ -144,6 +144,7 @@ jobs:
             touch $HOME/.profile
       - name: Tests
         run: |
+            dub -b release -- install ldc2-nightly -v
             dub -b release -- list -v
             source $HOME/.profile
             dub -b release -- install redub -v
