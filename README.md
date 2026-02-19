@@ -64,15 +64,25 @@ $ LDC2_ROOTPATH=customPath ldcup list # list installed compilers in custom path 
 $ ldcup                                         
 Usage: ldcup [command] [options]
 Commands:
-  install [compiler]   Install a ldc2 compiler (default: ldc2-latest)
-  uninstall [compiler] Uninstall a specific compiler
-  list                 List installed compilers
-  run -- <ldc2-flags>  Run a ldc2 compiler with specified flags
-  --install-dir=DIR    Specify the installation directory
-  --platform=PLATFORM  Specify the platform (e.g., linux-x86_64)
-  --verbose, -v        Enable verbose output
-  --remote             List all available compiler releases
-  --help, -h           Show this help message
+  install [compiler]    Install a compiler (default: ldc2-latest)
+  uninstall <compiler>  Uninstall an installed compiler
+  list                  List installed compilers
+  run -- <flags>        Run ldc2 with the given flags
+
+Compiler specifiers:
+  ldc2-latest           Latest stable LDC2 release (default)
+  ldc2-beta             Latest beta LDC2 release
+  ldc2-nightly          Latest nightly/CI build
+  ldc2-<version>        Specific version, e.g. ldc2-1.39.0
+  opend-latest          Latest OpenD release
+  redub                 Install the redub build tool
+
+Options:
+  --install-dir=DIR     Override installation directory
+  --platform=OS-ARCH    Override platform (e.g. linux-x86_64)
+  --remote              (list) Show all available remote releases
+  --verbose, -v         Enable verbose output
+  --help, -h            Show this help message
 ```
 
 ### License
