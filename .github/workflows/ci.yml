@@ -59,7 +59,7 @@ jobs:
           dub -b release ${{ env.DUB_ARCH }} -- install -v
           dub -b release ${{ env.DUB_ARCH }} -- install ldc2-master -v
           dub -b release ${{ env.DUB_ARCH }} -- list -v
-          dub -b release ${{ env.DUB_ARCH }} -- uninstall ldc2-1.41.0 -v
+          dub -b release ${{ env.DUB_ARCH }} -- uninstall ldc2-1.42.0 -v
           dub -b release ${{ env.DUB_ARCH }} -- list -v
           dub -b release ${{ env.DUB_ARCH }} -- run -v -- --version
       - name: Compress artifacts (Windows)
@@ -101,7 +101,7 @@ jobs:
             dub -b release -- install -v
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
-            dub -b release -- uninstall ldc2-1.41.0 -v
+            dub -b release -- uninstall ldc2-1.42.0 -v
             dub -b release -- list -v
             dub -b release -- run -v -- --version
             tar -cJf bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz -C bin .
@@ -134,21 +134,21 @@ jobs:
       - name: Prepare
         run: |
             apk update
-            apk add --no-cache ldc dub clang xz
+            apk add --no-cache xz tar ldc dub clang xz
       - name: "Build Flags environment"
         run: |
-            echo "LDFLAGS=-static" >> $GITHUB_ENV
+            echo "DFLAGS=-L-static" >> $GITHUB_ENV
       - name: Build
         run: |
             dub -b release
             touch $HOME/.profile
-      # - name: Tests
-      #   run: |
-      #       dub -b release -- install ldc2-nightly -v
-      #       dub -b release -- list -v
-      #       source $HOME/.profile
-      #       dub -b release -- install redub -v
-      #       dub -b release -- run -v -- --version
+       - name: Tests
+         run: |
+             dub -b release -- install ldc2-nightly -v
+             dub -b release -- list -v
+             source $HOME/.profile
+             dub -b release -- install redub -v
+             dub -b release -- run -v -- --version
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
