@@ -134,7 +134,7 @@ jobs:
       - name: Prepare
         run: |
             apk update
-            apk add --no-cache xz tar ldc dub clang xz
+            apk add --no-cache xz tar ldc dub clang
       - name: "Build Flags environment"
         run: |
             echo "DFLAGS=-L-static" >> $GITHUB_ENV
@@ -142,13 +142,13 @@ jobs:
         run: |
             dub -b release
             touch $HOME/.profile
-       - name: Tests
-         run: |
-             dub -b release -- install ldc2-nightly -v
-             dub -b release -- list -v
-             source $HOME/.profile
-             dub -b release -- install redub -v
-             dub -b release -- run -v -- --version
+      - name: Tests
+        run: |
+            dub -b release -- install ldc2-master -v
+            dub -b release -- list -v
+            source $HOME/.profile
+            dub -b release -- install redub -v
+            dub -b release -- run -v -- --version
       - name: Compress artifacts
         run: |
             cd bin && tar -cJf ldcup-alpine-${{ matrix.arch }}.tar.xz *
