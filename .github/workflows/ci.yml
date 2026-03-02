@@ -135,9 +135,6 @@ jobs:
         run: |
             apk update
             apk add --no-cache xz tar ldc dub clang
-      - name: "Build Flags environment"
-        run: |
-            echo "DFLAGS=-L-static" >> $GITHUB_ENV
       - name: Build
         run: |
             dub -b release
