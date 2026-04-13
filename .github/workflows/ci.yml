@@ -75,7 +75,7 @@ jobs:
         with:
           name: ldcup-${{ matrix.os }}-${{ matrix.arch }}
           path: bin/ldcup-${{ matrix.os }}-${{ matrix.arch }}.*
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: 'bin/ldcup-${{ matrix.os }}-${{ matrix.arch }}.*'
@@ -110,7 +110,7 @@ jobs:
         with:
           name: ldcup-freebsd-14.3-amd64
           path: bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: 'bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz'
@@ -154,7 +154,7 @@ jobs:
         with:
           name: ldcup-alpine-${{ matrix.arch }}
           path: bin/ldcup-alpine-${{ matrix.arch }}.tar.xz
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: 'bin/ldcup-alpine-${{ matrix.arch }}.tar.xz'
