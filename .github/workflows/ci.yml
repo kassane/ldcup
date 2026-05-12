@@ -55,6 +55,7 @@ jobs:
         run: |
           dub -b release ${{ env.DUB_ARCH }}
       - name: Tests
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         run: |
           dub -b release ${{ env.DUB_ARCH }} -- install -v
           dub -b release ${{ env.DUB_ARCH }} -- install ldc2-master -v
@@ -98,12 +99,15 @@ jobs:
             pkg install -y curl dub ldc
           run: |
             dub -b release
-            dub -b release -- install -v
-            dub -b release -- install ldc2-master -v
-            dub -b release -- list -v
-            dub -b release -- uninstall ldc2-1.42.0 -v
-            dub -b release -- list -v
-            dub -b release -- run -v -- --version
+            IS_TAG=${{ startsWith(github.ref, 'refs/tags/') }}
+            if [ "$IS_TAG" = "false" ]; then
+              dub -b release -- install -v
+              dub -b release -- install ldc2-master -v
+              dub -b release -- list -v
+              dub -b release -- uninstall ldc2-1.42.0 -v
+              dub -b release -- list -v
+              dub -b release -- run -v -- --version
+            fi
             tar -cJf bin/ldcup-freebsd14.3-${{ matrix.arch }}.tar.xz -C bin .
       - uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -140,6 +144,7 @@ jobs:
             dub -b release
             touch $HOME/.profile
       - name: Tests
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         run: |
             dub -b release -- install ldc2-master -v
             dub -b release -- list -v
