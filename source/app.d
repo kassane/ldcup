@@ -21,6 +21,7 @@ struct Args
     bool help;
     bool verbose;
     bool remote;
+    bool compilerSet;
     string installDir;
     string platform;
     string command;
@@ -36,7 +37,7 @@ void printHelp(string programName) @safe
     writeln("  install [compiler]    Install a compiler (default: ldc2-latest)");
     writeln("  uninstall <compiler>  Uninstall an installed compiler");
     writeln("  list                  List installed compilers");
-    writeln("  run -- <flags>        Run ldc2 with the given flags");
+    writeln("  run [compiler] -- <flags>  Run ldc2 with the given flags");
     writeln();
     writeln("Compiler specifiers:");
     writeln("  ldc2-latest           Latest stable LDC2 release (default)");
@@ -88,9 +89,22 @@ Args parseArgs(string[] argv) @safe
             break;
         }
         else if (arg.startsWith("ldc2-") || arg.startsWith("opend-"))
+        {
             parsed.compiler = normaliseCompilerSpec(arg);
-        else if (arg.canFind("redub"))
+            parsed.compilerSet = true;
+        }
+        else if (arg == "redub")
+        {
             parsed.compiler = arg;
+            parsed.compilerSet = true;
+        }
+        else if (arg.among("dmd", "gdc"))
+            throw new Exception("Only ldc2 and opend compilers are supported.");
+        else if (arg.startsWith("v") && arg.length > 1 && arg[1].isDigit)
+        {
+            parsed.compiler = normaliseCompilerSpec(arg);
+            parsed.compilerSet = true;
+        }
         else if (parsed.command.empty)
             parsed.command = arg;
         else
@@ -118,12 +132,6 @@ int main(string[] argv) @safe
         return 0;
     }
 
-    if (parsed.compiler.among("dmd", "gdc"))
-    {
-        writeln("Error: only ldc2 and opend compilers are supported.");
-        return 1;
-    }
-
     if (parsed.command.empty)
     {
         writeln("Error: no command specified.");
@@ -143,6 +151,7 @@ int main(string[] argv) @safe
             break;
 
         case "uninstall":
+            enforce(parsed.compilerSet, "uninstall requires a compiler specifier, e.g. ldc2-1.42.0");
             manager.uninstallCompiler(parsed.compiler);
             break;
 
