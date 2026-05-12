@@ -63,10 +63,10 @@ private:
     Arch currentArch;
     ReleaseType releaseType;
 
-    version (Windows)
-        immutable string ext = ".7z";
-    else
-        immutable string ext = ".tar.xz";
+    private string ext() const @safe pure
+    {
+        return (currentOS == OS.windows) ? ".7z" : ".tar.xz";
+    }
 
 public:
         bool verbose;
@@ -137,6 +137,9 @@ public:
             enforce(parts.length == 2, "Invalid platform format (expected OS-ARCH): " ~ platform);
             currentOS = fromString!OS(parts[0]);
             currentArch = fromString!Arch(parts[1]);
+            // Windows releases use x64/x86/multilib naming, not x86_64
+            if (currentOS == OS.windows && currentArch == Arch.x86_64)
+                currentArch = Arch.x64;
         }
     }
 
@@ -150,9 +153,9 @@ public:
         auto downloadUrl = getCompilerDownloadUrl(resolvedCompiler);
         auto targetPath = buildPath(root, resolvedCompiler);
 
-        downloadAndExtract(downloadUrl, targetPath, resolvedCompiler.startsWith("opend-"));
+        bool isOpend = resolvedCompiler.startsWith("opend-");
+        downloadAndExtract(downloadUrl, targetPath, isOpend);
 
-        bool isOpend = compilerSpec.startsWith("opend-");
         string prefix = isOpend ? "opend" : "ldc2";
         compilerPath = buildPath(
             targetPath,
@@ -198,10 +201,9 @@ public:
 
     void runCompiler(string compilerSpec, string[] args) @safe
     {
-        enforce(args.length > 0, "No flags provided. Use 'run -- <flags>'");
+        enforce(args.length > 0, "No flags provided. Use 'run [compiler] -- <flags>'");
         log("Running compiler: %s", compilerSpec);
-        compilerPath = findLDC2Path();
-        enforce(!compilerPath.empty, "No LDC2 installation found");
+        compilerPath = findLDC2Path(compilerSpec);
 
         auto cmd = [compilerPath] ~ args;
         auto result = execute(cmd);
@@ -209,14 +211,18 @@ public:
         enforce(result.status == 0, "LDC2 execution failed with status %d".format(result.status));
     }
 
-    string findLDC2Path() @safe
+    string findLDC2Path(string compilerSpec = "") @safe
     {
         auto installed = listInstalledCompilers().filter!(v => v.startsWith("ldc2-")).array;
         enforce(!installed.empty, "No LDC2 installation found in %s".format(root));
 
-        string ver = installed[0]["ldc2-".length .. $];
+        // Use the requested spec if it's installed; otherwise fall back to the first entry.
+        string entry = (compilerSpec.startsWith("ldc2-") && installed.canFind(compilerSpec))
+            ? compilerSpec : installed[0];
+
+        string ver = entry["ldc2-".length .. $];
         string ldc2Dir = buildPath(
-            root, installed[0],
+            root, entry,
             format("ldc2-%s-%s-%s", ver, currentOS, currentArch),
             "bin"
         );
@@ -467,7 +473,7 @@ public:
         else if (compilerSpec.endsWith("nightly") || compilerSpec.endsWith("master"))
         {
             releaseType = ReleaseType.nightly;
-            url = "https://github.com/ldc-developers/ldc/commits/master.atom";
+            url = "https://api.github.com/repos/ldc-developers/ldc/releases/tags/CI";
         }
         else // Explicit version — use as-is; normalise prefix if missing.
             return compilerSpec.startsWith("ldc2-") ? compilerSpec : "ldc2-" ~ compilerSpec;
@@ -485,9 +491,24 @@ public:
                 format("HTTP %d when resolving %s version", res.code, releaseType));
 
             string response = (cast(string) res.responseBody.data).strip;
-            string dversion = (releaseType == ReleaseType.nightly)
-                ? response.split("<id>tag:github.com,2008:Grit::Commit/")[1].split(
-                    "</id>")[0][0 .. 8] : response;
+            string dversion;
+            if (releaseType == ReleaseType.nightly)
+            {
+                string suffix = format("-%s-%s%s", currentOS, currentArch, ext);
+                foreach (asset; parseJSON(response)["assets"].array)
+                {
+                    string name = asset["name"].str;
+                    if (name.startsWith("ldc2-") && name.endsWith(suffix))
+                    {
+                        dversion = name["ldc2-".length .. $ - suffix.length];
+                        break;
+                    }
+                }
+                enforce(!dversion.empty,
+                    "No CI nightly build found for %s-%s".format(currentOS, currentArch));
+            }
+            else
+                dversion = response;
 
             log("Resolved %s version: ldc2-%s", releaseType, dversion);
             return "ldc2-" ~ dversion;
