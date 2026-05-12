@@ -52,6 +52,109 @@ private string stripLeadingV(string s) @safe pure
     return (s.length > 0 && s[0] == 'v') ? s[1 .. $] : s;
 }
 
+private bool among(T, Choices...)(T val, Choices choices)
+{
+    foreach (c; choices)
+        if (val == c)
+            return true;
+    return false;
+}
+
+struct Args
+{
+    bool help;
+    bool verbose;
+    bool remote;
+    bool compilerSet;
+    string installDir;
+    string platform;
+    string command;
+    string compiler = "ldc2-latest";
+    string[] compilerArgs;
+}
+
+void printHelp(string programName) @safe
+{
+    writefln("Usage: %s <command> [compiler] [options]", programName);
+    writeln();
+    writeln("Commands:");
+    writeln("  install [compiler]    Install a compiler (default: ldc2-latest)");
+    writeln("  uninstall <compiler>  Uninstall an installed compiler");
+    writeln("  list                  List installed compilers");
+    writeln("  run [compiler] -- <flags>  Run ldc2 with the given flags");
+    writeln();
+    writeln("Compiler specifiers:");
+    writeln("  ldc2-latest           Latest stable LDC2 release (default)");
+    writeln("  ldc2-beta             Latest beta LDC2 release");
+    writeln("  ldc2-nightly          Latest nightly/CI build");
+    writeln("  ldc2-<version>        Specific version, e.g. ldc2-1.39.0");
+    writeln("  opend-latest          Latest OpenD release");
+    writeln("  redub                 Install the redub build tool");
+    writeln();
+    writeln("Options:");
+    writeln("  --install-dir=DIR     Override installation directory");
+    writeln("  --platform=OS-ARCH    Override platform (e.g. linux-x86_64)");
+    writeln("  --remote              (list) Show all available remote releases");
+    writeln("  --verbose, -v         Enable verbose output");
+    writeln("  --help, -h            Show this help message");
+}
+
+private string normaliseCompilerSpec(string spec) @safe pure
+{
+    if (spec.startsWith("v") && !spec.startsWith("verbose"))
+        return "ldc2-" ~ spec[1 .. $];
+    return spec;
+}
+
+Args parseArgs(string[] argv) @safe
+{
+    Args parsed;
+
+    for (size_t i = 1; i < argv.length; ++i)
+    {
+        string arg = argv[i];
+
+        if (arg == "--help" || arg == "-h")
+            parsed.help = true;
+        else if (arg == "--verbose" || arg == "-v")
+            parsed.verbose = true;
+        else if (arg == "--remote")
+            parsed.remote = true;
+        else if (arg.startsWith("--platform="))
+            parsed.platform = arg["--platform=".length .. $];
+        else if (arg.startsWith("--install-dir="))
+            parsed.installDir = arg["--install-dir=".length .. $];
+        else if (arg == "--")
+        {
+            parsed.compilerArgs = argv[i + 1 .. $];
+            break;
+        }
+        else if (arg.startsWith("ldc2-") || arg.startsWith("opend-"))
+        {
+            parsed.compiler = normaliseCompilerSpec(arg);
+            parsed.compilerSet = true;
+        }
+        else if (arg == "redub")
+        {
+            parsed.compiler = arg;
+            parsed.compilerSet = true;
+        }
+        else if (arg.among("dmd", "gdc"))
+            throw new Exception("Only ldc2 and opend compilers are supported.");
+        else if (arg.startsWith("v") && arg.length > 1 && arg[1].isDigit)
+        {
+            parsed.compiler = normaliseCompilerSpec(arg);
+            parsed.compilerSet = true;
+        }
+        else if (parsed.command.empty)
+            parsed.command = arg;
+        else
+            throw new Exception("Unknown argument: " ~ arg);
+    }
+
+    return parsed;
+}
+
 class CompilerManager
 {
 private:
@@ -723,4 +826,57 @@ string findProgram(string programName) @safe
             return fullPath;
     }
     throw new Exception("Program not found in PATH: " ~ programName);
+}
+
+// ─── Unit tests ────────────────────────────────────────────────────────────
+
+unittest // ext property: runtime value based on currentOS, not compile-time host
+{
+    auto win = new CompilerManager(tempDir(), "windows-x64");
+    assert(win.ext == ".7z", "Windows target must use .7z");
+
+    auto lin = new CompilerManager(tempDir(), "linux-x86_64");
+    assert(lin.ext == ".tar.xz", "Linux target must use .tar.xz");
+
+    auto osx = new CompilerManager(tempDir(), "osx-universal");
+    assert(osx.ext == ".tar.xz", "macOS target must use .tar.xz");
+}
+
+unittest // parseArgs: v-prefix version normalized to ldc2-
+{
+
+    auto a = parseArgs(["ldcup", "install", "v1.42.0"]);
+    assert(a.compiler == "ldc2-1.42.0", "v1.42.0 must become ldc2-1.42.0");
+    assert(a.compilerSet, "compilerSet must be true for explicit version");
+}
+
+unittest // parseArgs: dmd and gdc rejected with exception
+{
+
+    import std.exception : assertThrown;
+    assertThrown(parseArgs(["ldcup", "install", "dmd"]));
+    assertThrown(parseArgs(["ldcup", "install", "gdc"]));
+}
+
+unittest // parseArgs: uninstall without compiler leaves compilerSet false
+{
+
+    auto a = parseArgs(["ldcup", "uninstall"]);
+    assert(!a.compilerSet, "compilerSet must be false when no compiler given");
+    assert(a.compiler == "ldc2-latest");
+}
+
+unittest // parseArgs: explicit compiler for uninstall sets compilerSet
+{
+
+    auto a = parseArgs(["ldcup", "uninstall", "ldc2-1.42.0"]);
+    assert(a.compilerSet);
+    assert(a.compiler == "ldc2-1.42.0");
+}
+
+unittest // detectPlatform: windows-x86_64 normalizes arch to x64
+{
+    auto cm = new CompilerManager(tempDir(), "windows-x86_64");
+    assert(cm.currentOS == OS.windows);
+    assert(cm.currentArch == Arch.x64, "x86_64 must normalize to x64 for Windows targets");
 }
